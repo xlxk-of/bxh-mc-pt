@@ -1,0 +1,173 @@
+name: Web PWA
+
+# Exports the game to WebAssembly as an installable Progressive Web App and
+# publishes it to GitHub Pages. On iOS this is the escape hatch from code
+# signing entirely: Safari -> Share -> "Add to Home Screen" gives a fullscreen
+# app with its own icon, no certificate, no 7-day expiry, no computer.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "test/**"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; cancel an in-flight run when a newer one starts.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.1"
+  PROJECT_DIR: "."
+  EXPORT_PRESET: "Web"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Godot and export templates
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot-bin
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-web-v1
+
+      - name: Install Godot ${{ env.GODOT_VERSION }} + web templates
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          mkdir -p ~/godot-bin
+          curl -fL --retry 3 -o /tmp/godot.zip \
+            "$BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q /tmp/godot.zip -d ~/godot-bin
+          mv ~/godot-bin/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot-bin/godot
+          chmod +x ~/godot-bin/godot
+
+          curl -fL --retry 3 -o /tmp/templates.tpz \
+            "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q /tmp/templates.tpz -d /tmp
+          TPL="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$TPL"
+          mv /tmp/templates/* "$TPL/"
+          ls "$TPL" | grep -i web
+
+      - name: Ensure a Web export preset exists
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          # Written here rather than committed because the Godot editor rewrites
+          # export_presets.cfg whenever its export dialog is opened, which would
+          # silently drop a hand-added preset.
+          python3 - <<'PY'
+          import re
+
+          path = "export_presets.cfg"
+          text = open(path, encoding="utf-8").read()
+
+          if 'platform="Web"' in text:
+              print("Web preset already present; leaving it alone")
+              raise SystemExit(0)
+
+          used = [int(n) for n in re.findall(r'\[preset\.(\d+)\]', text)]
+          idx = max(used) + 1 if used else 0
+
+          preset = '''
+          [preset.{i}]
+
+          name="Web"
+          platform="Web"
+          runnable=true
+          dedicated_server=false
+          custom_features=""
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter="test/*, *.bbmodel"
+          export_path="../../build/web/index.html"
+          encryption_include_filters=""
+          encryption_exclude_filters=""
+          seed=0
+          encrypt_pck=false
+          encrypt_directory=false
+          script_export_mode=2
+
+          [preset.{i}.options]
+
+          custom_template/debug=""
+          custom_template/release=""
+          variant/extensions_support=false
+          # Single-threaded: threaded web builds need SharedArrayBuffer, which
+          # needs COOP/COEP headers that GitHub Pages cannot set, and iOS Safari
+          # has been the flakiest platform for web workers regardless.
+          variant/thread_support=false
+          vram_texture_compression/for_desktop=true
+          vram_texture_compression/for_mobile=true
+          html/export_icon=true
+          html/custom_html_shell=""
+          html/head_include=""
+          html/canvas_resize_policy=2
+          html/focus_canvas_on_start=true
+          html/experimental_virtual_keyboard=false
+          progressive_web_app/enabled=true
+          progressive_web_app/ensure_cross_origin_isolation_headers=false
+          progressive_web_app/offline_page=""
+          progressive_web_app/display=1
+          progressive_web_app/orientation=0
+          progressive_web_app/icon_144x144="res://assets/pwa/icon_144.png"
+          progressive_web_app/icon_180x180="res://assets/pwa/icon_180.png"
+          progressive_web_app/icon_512x512="res://assets/pwa/icon_512.png"
+          progressive_web_app/background_color=Color(0.03, 0.03, 0.06, 1)
+          '''.format(i=idx)
+          # The heredoc is indented for YAML readability; strip that back off.
+          preset = "\n".join(line[10:] if line.startswith(" " * 10) else line
+                             for line in preset.splitlines())
+
+          open(path, "a", encoding="utf-8").write(preset)
+          print("appended preset.%d (Web)" % idx)
+          PY
+
+      - name: Export the PWA
+        run: |
+          set -euo pipefail
+          GODOT="$HOME/godot-bin/godot"
+          cd "$PROJECT_DIR"
+          "$GODOT" --headless --import || true
+          "$GODOT" --headless --import
+
+          mkdir -p "$GITHUB_WORKSPACE/web"
+          "$GODOT" --headless --export-release "$EXPORT_PRESET" \
+            "$GITHUB_WORKSPACE/web/index.html"
+
+          test -f "$GITHUB_WORKSPACE/web/index.html" \
+            || { echo "::error::export produced no index.html"; exit 1; }
+          # .nojekyll stops GitHub Pages stripping files that start with "_".
+          touch "$GITHUB_WORKSPACE/web/.nojekyll"
+          ls -lh "$GITHUB_WORKSPACE/web"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
