@@ -1,0 +1,124 @@
+name: iOS unsigned IPA
+
+# Builds an UNSIGNED .ipa on a GitHub-hosted macOS runner, because linking
+# Godot's libgodot.a into an .app requires Xcode, which only runs on macOS.
+# You then sign it on your own machine with Sideloadly / AltStore / SideStore
+# using a free Apple ID, or install it with TrollStore on a supported iOS.
+#
+# Cost: macOS runners are free on PUBLIC repos. On a private repo with a free
+# plan they bill at 10x, so the 2,000 included minutes are ~200 macOS minutes.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+env:
+  GODOT_VERSION: "4.7.1"
+  # Path to the folder holding project.godot, relative to the repo root.
+  PROJECT_DIR: "."
+  EXPORT_PRESET: "iOS"
+  IPA_NAME: "BlockXHell-unsigned"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Godot and export templates
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot-bin
+            ~/Library/Application Support/Godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-ios-v1
+
+      - name: Install Godot ${{ env.GODOT_VERSION }} + iOS templates
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          mkdir -p ~/godot-bin
+          curl -fL --retry 3 -o /tmp/godot.zip \
+            "$BASE/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          unzip -q /tmp/godot.zip -d ~/godot-bin
+          xattr -dr com.apple.quarantine ~/godot-bin/Godot.app || true
+
+          curl -fL --retry 3 -o /tmp/templates.tpz \
+            "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q /tmp/templates.tpz -d /tmp
+          TPL="$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$TPL"
+          mv /tmp/templates/* "$TPL/"
+          ls "$TPL" | grep -i ios
+
+      - name: Export the Xcode project
+        run: |
+          set -euo pipefail
+          GODOT="$HOME/godot-bin/Godot.app/Contents/MacOS/Godot"
+          chmod +x "$GODOT"
+          cd "$PROJECT_DIR"
+
+          # First run builds the .import cache; it exits non-zero on a cold
+          # cache, which is expected, so it must not fail the job.
+          "$GODOT" --headless --import || true
+          "$GODOT" --headless --import
+
+          mkdir -p "$GITHUB_WORKSPACE/ios-build"
+          # Passing a DIRECTORY (not a path ending in .ipa) stops Godot from
+          # trying to run xcodebuild -exportArchive itself, which would demand
+          # a real signing identity.
+          "$GODOT" --headless --export-release "$EXPORT_PRESET" \
+            "$GITHUB_WORKSPACE/ios-build/${IPA_NAME}"
+
+      - name: Compile the .app without signing
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/ios-build"
+          PROJ="$(find . -maxdepth 2 -name '*.xcodeproj' | head -n1)"
+          echo "Xcode project: $PROJ"
+          SCHEME="$(xcodebuild -project "$PROJ" -list -json \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["project"]["schemes"][0])')"
+          echo "Scheme: $SCHEME"
+
+          xcodebuild \
+            -project "$PROJ" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$GITHUB_WORKSPACE/dd" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            ONLY_ACTIVE_ARCH=NO \
+            build
+
+      - name: Package Payload/ into an .ipa
+        run: |
+          set -euo pipefail
+          APP="$(find "$GITHUB_WORKSPACE/dd/Build/Products/Release-iphoneos" \
+            -maxdepth 1 -name '*.app' | head -n1)"
+          test -n "$APP" || { echo "no .app produced"; exit 1; }
+          # An .ipa is just a zip with the .app inside a folder called Payload.
+          mkdir -p "$GITHUB_WORKSPACE/out/Payload"
+          cp -R "$APP" "$GITHUB_WORKSPACE/out/Payload/"
+          cd "$GITHUB_WORKSPACE/out"
+          zip -qry "${IPA_NAME}.ipa" Payload
+          rm -rf Payload
+          ls -lh "${IPA_NAME}.ipa"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.IPA_NAME }}
+          path: out/${{ env.IPA_NAME }}.ipa
+          if-no-files-found: error
+          retention-days: 30

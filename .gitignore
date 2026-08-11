@@ -1,0 +1,16 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Export output. Never commit these: the iOS Xcode project alone is ~475 MB
+# because libgodot.a is 220 MB. CI regenerates it from the project instead.
+# NOTE: the iOS preset currently writes to ../dist/, which is OUTSIDE this
+# folder. If your repo root is Godot-Port/ or higher, add `dist/` to the
+# .gitignore at that root too -- this file cannot reach above itself.
+/build/
+/dist/
+*.ipa
+*.apk
+*.aab
+*.pck
+*.zip
