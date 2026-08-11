@@ -8,7 +8,7 @@ signal request_dialog(kind: String, payload: Dictionary)
 var session: GameSession
 
 var _money_label: Label
-var _offers_box: VBoxContainer
+var _offers_box: GridContainer
 var _inventory_box: HBoxContainer
 var _inventory_section: VBoxContainer
 var _reroll_button: Button
@@ -57,8 +57,11 @@ func _build() -> void:
 	inv_scroll.add_child(_inventory_box)
 
 	content.add_child(UIKit.make_section("For Sale"))
-	_offers_box = VBoxContainer.new()
-	_offers_box.add_theme_constant_override("separation", 10)
+	# Portrait has width to spare and height to save, so stock goes two across.
+	_offers_box = GridContainer.new()
+	_offers_box.columns = 2 if Layout.portrait else 1
+	_offers_box.add_theme_constant_override("h_separation", 10)
+	_offers_box.add_theme_constant_override("v_separation", 10)
 	content.add_child(_offers_box)
 
 	content.add_child(UIKit.spacer(6))
@@ -157,12 +160,17 @@ func _make_offer_row(entry_name: String, rarity: String, description: String,
 		cost: int, inventory_full: bool, kind: String, index: int) -> Control:
 	var rarity_col := Cfg.rarity_color(rarity)
 	var panel := UIKit.make_panel(Color(0.09, 0.09, 0.16), rarity_col)
+	# A GridContainer sizes columns to the child minimum unless the child asks to
+	# expand, so without this the rows stop filling the content column.
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var compact := Layout.is_compact()
-	# Which axis is scarce decides where the buy button goes. Portrait is narrow,
-	# so the button drops to its own full-width line; landscape is short, so it
-	# stays inline and the row keeps the icon's height.
-	var stack_button := Layout.portrait
+	# Portrait lays stock out two across, so each entry becomes a narrow card
+	# with the icon on top. Landscape keeps the wide row, where the scarce axis
+	# is height and the button belongs inline.
+	if Layout.portrait:
+		return _make_offer_card(panel, entry_name, rarity, description, cost,
+			inventory_full, kind, index)
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 8)
 	panel.add_child(outer)
@@ -172,11 +180,7 @@ func _make_offer_row(entry_name: String, rarity: String, description: String,
 	outer.add_child(row)
 
 	var icon := CardIcon.new()
-	var icon_size := 104.0
-	if Layout.is_phone_landscape():
-		icon_size = 72.0
-	elif compact:
-		icon_size = 84.0
+	var icon_size := 72.0 if compact else 104.0
 	icon.custom_minimum_size = Vector2(icon_size, icon_size)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	icon.interactive = false
@@ -201,10 +205,7 @@ func _make_offer_row(entry_name: String, rarity: String, description: String,
 	text.add_child(desc)
 
 	var buy := UIKit.make_button("Buy  $%d" % cost, Cfg.ACCENT_GOOD, "small")
-	if stack_button:
-		buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	else:
-		buy.custom_minimum_size.x = 130.0 if compact else 150.0
+	buy.custom_minimum_size.x = 130.0 if compact else 150.0
 	if inventory_full:
 		buy.disabled = true
 		buy.text = "Slots full"
@@ -214,10 +215,55 @@ func _make_offer_row(entry_name: String, rarity: String, description: String,
 	buy.pressed.connect(func():
 		if session.buy_shop_entry(kind, index):
 			refresh())
-	if stack_button:
-		outer.add_child(buy)
-	else:
-		row.add_child(buy)
+	row.add_child(buy)
+	return panel
+
+
+## Narrow two-across card used in portrait: icon on top so the artwork still
+## reads, then name, description and a full-width tap target.
+func _make_offer_card(panel: PanelContainer, entry_name: String, rarity: String,
+		description: String, cost: int, inventory_full: bool,
+		kind: String, index: int) -> Control:
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	panel.add_child(box)
+
+	var icon := CardIcon.new()
+	icon.custom_minimum_size = Vector2(88, 88)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	icon.interactive = false
+	icon.set_entry(entry_name, rarity)
+	box.add_child(icon)
+
+	var title := UIKit.make_label(entry_name, "body", Cfg.WHITE)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(title)
+
+	var chip := UIKit.make_rarity_chip(rarity)
+	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(chip)
+
+	var desc := UIKit.make_label(description, "small", Cfg.LIGHT_GRAY)
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(desc)
+
+	var buy := UIKit.make_button("Buy  $%d" % cost, Cfg.ACCENT_GOOD, "small")
+	buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if inventory_full:
+		buy.disabled = true
+		buy.text = "Slots full"
+	elif session.money < cost:
+		buy.disabled = true
+		buy.text = "$%d - short" % cost
+	buy.pressed.connect(func():
+		if session.buy_shop_entry(kind, index):
+			refresh())
+	box.add_child(buy)
 	return panel
 
 

@@ -14,38 +14,32 @@ var content: VBoxContainer
 var _scrim: ColorRect
 var _frame: Control
 var _closing := false
+var _built_portrait := false
+var _margin: MarginContainer
 
 
 func _ready() -> void:
 	UIKit.fill_viewport(self)
-	Layout.layout_changed.connect(func(): UIKit.fill_viewport(self))
+	Layout.layout_changed.connect(_on_layout_changed)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 	_scrim = UIKit.make_scrim(scrim_alpha)
 	add_child(_scrim)
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var pad := 14 if Layout.portrait else 28
-	margin.add_theme_constant_override("margin_left", pad)
-	margin.add_theme_constant_override("margin_right", pad)
-	margin.add_theme_constant_override("margin_top", pad)
-	margin.add_theme_constant_override("margin_bottom", pad)
-	add_child(margin)
+	_margin = MarginContainer.new()
+	_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_margin)
+	var margin := _margin
 
 	var centre := CenterContainer.new()
 	centre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	centre.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_child(centre)
 
-	var available := Layout.logical_size() - Vector2(pad, pad) * 2.0
 	_frame = VBoxContainer.new()
-	_frame.custom_minimum_size.x = minf(max_content_width, available.x)
-	if use_scroll:
-		# Scroll views must be told how tall to be; their own minimum is zero.
-		_frame.custom_minimum_size.y = maxf(120.0, available.y)
 	_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	centre.add_child(_frame)
+	_size_frame()
 
 	if use_scroll:
 		var scroll := ScrollContainer.new()
@@ -68,8 +62,43 @@ func _ready() -> void:
 		content.add_theme_constant_override("separation", 12)
 		_frame.add_child(content)
 
+	_built_portrait = Layout.portrait
 	_build()
 	_animate_in()
+
+
+## Padding and the content column both depend on orientation, so they are set
+## here and re-applied on every rotation rather than baked in at construction.
+func _size_frame() -> void:
+	var pad := 14 if Layout.portrait else 28
+	if _margin:
+		_margin.add_theme_constant_override("margin_left", pad)
+		_margin.add_theme_constant_override("margin_right", pad)
+		_margin.add_theme_constant_override("margin_top", pad)
+		_margin.add_theme_constant_override("margin_bottom", pad)
+	if _frame == null:
+		return
+	var available := Layout.logical_size() - Vector2(pad, pad) * 2.0
+	_frame.custom_minimum_size.x = minf(max_content_width, available.x)
+	if use_scroll:
+		# Scroll views must be told how tall to be; their own minimum is zero.
+		_frame.custom_minimum_size.y = maxf(120.0, available.y)
+
+
+## Rotating the phone changes the arrangement every screen was built for, so the
+## contents are thrown away and rebuilt rather than left mis-shaped.
+func _on_layout_changed() -> void:
+	UIKit.fill_viewport(self)
+	if _closing or content == null or _built_portrait == Layout.portrait:
+		return
+	_built_portrait = Layout.portrait
+	# The content column was sized for the old orientation; without this the
+	# rebuilt screen keeps a portrait-width frame on a landscape display.
+	_size_frame()
+	for child in content.get_children():
+		content.remove_child(child)
+		child.queue_free()
+	_build()
 
 
 ## Subclasses override this.

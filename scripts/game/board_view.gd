@@ -24,10 +24,12 @@ var session: GameSession
 var cell_size := 40.0
 var board_origin := Vector2.ZERO
 
-## Finger motion is multiplied by this before it moves the piece. 1.0 would be
-## a rigid 1:1 grab; >1 means the piece outruns the thumb, which is what makes a
-## one-handed reach to the far side of the board comfortable.
-const DRAG_GAIN := 1.5
+## Default (Block Blast style) placement multiplies finger motion by this, so
+## the piece outruns the thumb and a short swipe reaches the far side of the
+## board. Direct placement uses 1.0, putting the piece under the finger.
+const DRAG_GAIN := 2.0
+const PLACEMENT_DEFAULT := 0
+const PLACEMENT_DIRECT := 1
 
 var dragging := false
 var drag_index := -1
@@ -168,10 +170,12 @@ func update_drag(pointer_global: Vector2) -> void:
 	queue_redraw()
 
 
-## Amplification only makes sense for a thumb. A mouse cursor is already precise
-## and visible, so it stays rigidly 1:1.
+## Amplification only makes sense for a thumb: a mouse cursor is already precise
+## and absolute, so pointer input stays rigidly 1:1 whatever the setting says.
 func _drag_gain() -> float:
-	return DRAG_GAIN if Layout.touch_primary else 1.0
+	if not Layout.touch_primary:
+		return 1.0
+	return 1.0 if SaveGame.placement_mode == PLACEMENT_DIRECT else DRAG_GAIN
 
 
 ## Where the piece itself sits, in board-local space. While dragging this is

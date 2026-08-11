@@ -12,7 +12,7 @@ signal layout_changed
 enum Form { PHONE, TABLET, DESKTOP }
 
 const BASE_SIZE := Vector2i(1280, 720)
-const MIN_TOUCH_PX := 52.0   # logical px; Material/HIG minimum comfortable target
+const MIN_TOUCH_PX := 60.0   # logical px; comfortably above the HIG minimum
 
 var form: Form = Form.DESKTOP
 var portrait := false

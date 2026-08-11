@@ -93,7 +93,12 @@ static func make_button(text: String, accent := Cfg.PANEL_ACCENT, size_kind := "
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.custom_minimum_size.y = Layout.touch_size()
 	b.add_theme_font_override("font", font("display"))
-	b.add_theme_font_size_override("font_size", font_size(size_kind))
+	# Buttons never use the body-copy tiers: a label can be 16px, a tap target
+	# label should not be.
+	var label_size := font_size(size_kind)
+	if Layout.touch_primary:
+		label_size = maxi(label_size, font_size("body"))
+	b.add_theme_font_size_override("font_size", label_size)
 	b.add_theme_color_override("font_color", Cfg.WHITE)
 	b.add_theme_color_override("font_hover_color", Cfg.WHITE)
 	b.add_theme_color_override("font_pressed_color", accent)
@@ -119,16 +124,22 @@ static func make_panel(fill := Cfg.PANEL_FILL, accent := Cfg.PANEL_ACCENT) -> Pa
 	return p
 
 
+## Body copy (tiny/small) keeps its size everywhere -- it is already legible and
+## growing it just costs lines. The "important" tiers grow on touch, where the
+## screen is held further away and the reader is scanning, not studying.
 static func font_size(kind: String) -> int:
+	var base := 19
 	match kind:
 		"tiny": return 13
 		"small": return 16
-		"body": return 19
-		"medium": return 24
-		"large": return 34
-		"huge": return 52
-		"title": return 46
-	return 19
+		"body": base = 19
+		"medium": base = 24
+		"large": base = 34
+		"huge": base = 52
+		"title": base = 46
+	if Layout.touch_primary:
+		base = int(round(base * 1.18))
+	return base
 
 
 static func make_label(text: String, kind := "body", color := Cfg.WHITE,

@@ -38,6 +38,9 @@ func _build() -> void:
 	content.add_child(_slider("Screen Shake", SaveGame.screen_shake, func(v: float):
 		SaveGame.screen_shake = v))
 
+	content.add_child(UIKit.make_section("Placement"))
+	content.add_child(_placement_picker())
+
 	if Layout.touch_primary:
 		content.add_child(UIKit.make_section("Touch"))
 		content.add_child(_toggle("Haptics", SaveGame.haptics, func(on: bool):
@@ -68,6 +71,32 @@ func _build() -> void:
 		back.pressed.connect(_save_and_close)
 		buttons.append(back)
 	add_button_row(buttons)
+
+
+## Two ways to hold a piece. Default is the Block Blast feel; Direct is the
+## literal one, for players who would rather aim than throw.
+func _placement_picker() -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+
+	var names := ["Default", "Direct"]
+	var blurbs := [
+		"Piece floats above your finger and moves %.0fx as far - flick it into place." % BoardView.DRAG_GAIN,
+		"Piece sits under your finger and follows it exactly.",
+	]
+
+	var desc := UIKit.make_label(blurbs[SaveGame.placement_mode], "small", Cfg.TEXT_DIM)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+	var button := UIKit.make_button("Placement: " + names[SaveGame.placement_mode],
+		Cfg.ACCENT_PRIMARY, "small")
+	button.pressed.connect(func():
+		SaveGame.placement_mode = (SaveGame.placement_mode + 1) % names.size()
+		button.text = "Placement: " + names[SaveGame.placement_mode]
+		desc.text = blurbs[SaveGame.placement_mode])
+	box.add_child(button)
+	box.add_child(desc)
+	return box
 
 
 func _slider(label: String, value: float, on_change: Callable) -> Control:
