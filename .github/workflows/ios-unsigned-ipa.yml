@@ -58,6 +58,52 @@ jobs:
           mv /tmp/templates/* "$TPL/"
           ls "$TPL" | grep -i ios
 
+      - name: Force "export project only" on the iOS preset
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          # On macOS, Godot's iOS exporter runs `xcodebuild -archive` ITSELF at
+          # the end of the export -- the output path being a folder rather than
+          # an .ipa does not stop it. That archive fails here because the
+          # release config asks for "Apple Distribution" while the project is on
+          # automatic signing with a placeholder team, which is a conflict Xcode
+          # refuses. `export_project_only` makes Godot emit the Xcode project
+          # and stop, leaving the build to the next step where signing is off.
+          #
+          # Patched on the runner rather than committed because the Godot editor
+          # rewrites export_presets.cfg whenever the export dialog is opened.
+          python3 - <<'PY'
+          import re
+
+          path = "export_presets.cfg"
+          text = open(path, encoding="utf-8").read()
+
+          # Find which preset index is the iOS one, then patch its options block.
+          idx = None
+          for m in re.finditer(r'\[preset\.(\d+)\]([^\[]*)', text):
+              if 'platform="iOS"' in m.group(2):
+                  idx = m.group(1)
+                  break
+          if idx is None:
+              raise SystemExit("no iOS preset found in export_presets.cfg")
+
+          header = "[preset.%s.options]" % idx
+          start = text.index(header) + len(header)
+          end = text.find("[preset.", start)
+          if end == -1:
+              end = len(text)
+          block = text[start:end]
+
+          key = "application/export_project_only"
+          if key in block:
+              block = re.sub(re.escape(key) + r"=\w+", key + "=true", block)
+          else:
+              block = "\n" + key + "=true" + block
+
+          open(path, "w", encoding="utf-8").write(text[:start] + block + text[end:])
+          print("patched preset.%s -> %s=true" % (idx, key))
+          PY
+
       - name: Export the Xcode project
         run: |
           set -euo pipefail
@@ -65,17 +111,19 @@ jobs:
           chmod +x "$GODOT"
           cd "$PROJECT_DIR"
 
-          # First run builds the .import cache; it exits non-zero on a cold
-          # cache, which is expected, so it must not fail the job.
+          # First run builds the .import cache; a cold cache exits non-zero,
+          # which is expected, so it must not fail the job.
           "$GODOT" --headless --import || true
           "$GODOT" --headless --import
 
           mkdir -p "$GITHUB_WORKSPACE/ios-build"
-          # Passing a DIRECTORY (not a path ending in .ipa) stops Godot from
-          # trying to run xcodebuild -exportArchive itself, which would demand
-          # a real signing identity.
           "$GODOT" --headless --export-release "$EXPORT_PRESET" \
-            "$GITHUB_WORKSPACE/ios-build/${IPA_NAME}"
+            "$GITHUB_WORKSPACE/ios-build/BlockXHell"
+
+          # Godot reports export failures through its own error channel and can
+          # still exit 0, so assert on the artefact instead of the exit code.
+          test -n "$(find "$GITHUB_WORKSPACE/ios-build" -maxdepth 2 -name '*.xcodeproj' -print -quit)" \
+            || { echo "::error::Godot did not produce an Xcode project"; exit 1; }
 
       - name: Compile the .app without signing
         run: |
