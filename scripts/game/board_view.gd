@@ -4,7 +4,9 @@ extends Control
 ## both control schemes:
 ##
 ##   * Drag  - press a tray piece, drag it over the board, release to drop.
-##             On touch the piece floats above the finger so it stays visible.
+##             The piece floats above the finger and tracks finger *motion*
+##             rather than absolute position, amplified by DRAG_GAIN, so a short
+##             thumb swipe can reach the top of the board.
 ##   * Tap   - tap a tray piece to select, then tap a cell to drop it there.
 ##   * Mouse - the ghost simply follows the cursor; click to drop.
 ##
@@ -22,9 +24,16 @@ var session: GameSession
 var cell_size := 40.0
 var board_origin := Vector2.ZERO
 
+## Finger motion is multiplied by this before it moves the piece. 1.0 would be
+## a rigid 1:1 grab; >1 means the piece outruns the thumb, which is what makes a
+## one-handed reach to the far side of the board comfortable.
+const DRAG_GAIN := 1.5
+
 var dragging := false
 var drag_index := -1
 var _drag_shape: Dictionary = {}
+var _drag_finger_start := Vector2.ZERO
+var _drag_piece_anchor := Vector2.ZERO
 var _pointer_pos := Vector2.ZERO
 var _pointer_inside := false
 var _ghost_valid := false
@@ -113,6 +122,11 @@ func begin_drag(shape: Dictionary, hand_index: int, pointer_global: Vector2) -> 
 	drag_index = hand_index
 	_drag_shape = shape
 	session.selected_index = hand_index
+	# Anchor the relative frame: the piece starts directly above the finger, and
+	# every later sample moves it by the finger delta times DRAG_GAIN.
+	_pointer_pos = get_global_transform().affine_inverse() * pointer_global
+	_drag_finger_start = _pointer_pos
+	_drag_piece_anchor = _pointer_pos - Vector2(0, Layout.drag_lift(cell_size))
 	_update_pointer(pointer_global)
 	drag_state_changed.emit(true)
 	queue_redraw()
@@ -124,7 +138,7 @@ func end_drag(pointer_global: Vector2, commit := true) -> bool:
 	_update_pointer(pointer_global)
 	var placed := false
 	if commit and _pointer_inside and not _drag_shape.is_empty():
-		var origin := _ghost_origin(cell_at_point(_pointer_pos - Vector2(0, Layout.drag_lift(cell_size))), _drag_shape)
+		var origin := _ghost_origin(cell_at_point(piece_centre()), _drag_shape)
 		origin = _snapped_origin(origin, _drag_shape)
 		if session.is_valid_placement(_drag_shape, origin.x, origin.y, session.soul_stamp_armed()):
 			session.ghost_pos = origin
@@ -154,9 +168,28 @@ func update_drag(pointer_global: Vector2) -> void:
 	queue_redraw()
 
 
+## Amplification only makes sense for a thumb. A mouse cursor is already precise
+## and visible, so it stays rigidly 1:1.
+func _drag_gain() -> float:
+	return DRAG_GAIN if Layout.touch_primary else 1.0
+
+
+## Where the piece itself sits, in board-local space. While dragging this is
+## driven by accumulated finger motion, not by the finger position, so the two
+## intentionally diverge as you swipe.
+func piece_centre() -> Vector2:
+	if not dragging:
+		return _pointer_pos
+	var moved := (_pointer_pos - _drag_finger_start) * _drag_gain()
+	var centre := _drag_piece_anchor + moved
+	# Keep it reachable: never let the piece outrun the board entirely.
+	var bounds := Rect2(Vector2.ZERO, size).grow(cell_size)
+	return centre.clamp(bounds.position, bounds.end)
+
+
 func _update_pointer(pointer_global: Vector2) -> void:
 	_pointer_pos = get_global_transform().affine_inverse() * pointer_global
-	var probe := _pointer_pos - Vector2(0, Layout.drag_lift(cell_size) if dragging else 0.0)
+	var probe := piece_centre() if dragging else _pointer_pos
 	var cell := cell_at_point(probe)
 	_pointer_inside = in_bounds(cell)
 	if _pointer_inside and session != null:
@@ -547,7 +580,7 @@ func _draw_ghost() -> void:
 	if dragging and lift > 0.0 and not (valid and _pointer_inside):
 		var s := Cfg.shape_size(shape)
 		var half := Vector2(s.x, s.y) * cell_size * 0.5
-		var anchor := _pointer_pos + Vector2(0, -lift) - half
+		var anchor := piece_centre() - half
 		for off in shape.get("coords", []):
 			var pos := anchor + Vector2(off.y, off.x) * cell_size
 			var r := Rect2(pos, Vector2(cell_size, cell_size)).grow(-inset)

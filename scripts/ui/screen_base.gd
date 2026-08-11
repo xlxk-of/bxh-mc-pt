@@ -52,6 +52,10 @@ func _ready() -> void:
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Without a deadzone, a touch drag that starts on a button is swallowed
+		# by the button instead of scrolling the list.
+		scroll.scroll_deadzone = 12
+		scroll.follow_focus = true
 		_frame.add_child(scroll)
 		content = VBoxContainer.new()
 		content.size_flags_horizontal = Control.SIZE_EXPAND_FILL

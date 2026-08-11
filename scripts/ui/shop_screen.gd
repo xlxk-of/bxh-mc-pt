@@ -10,6 +10,7 @@ var session: GameSession
 var _money_label: Label
 var _offers_box: VBoxContainer
 var _inventory_box: HBoxContainer
+var _inventory_section: VBoxContainer
 var _reroll_button: Button
 
 
@@ -21,17 +22,36 @@ func _init() -> void:
 func _build() -> void:
 	if session == null:
 		return
-	add_header("Shop", "Round %d" % session.round_count, Cfg.ACCENT_PRIMARY)
+	var compact := Layout.is_compact()
+	if compact:
+		# One line of chrome instead of four: a phone needs the vertical space
+		# for stock, not for a title block.
+		var bar := HBoxContainer.new()
+		bar.add_theme_constant_override("separation", 10)
+		bar.add_child(UIKit.make_title("SHOP", "medium", Cfg.ACCENT_PRIMARY))
+		var round_label := UIKit.make_label("Round %d" % session.round_count, "small", Cfg.TEXT_DIM)
+		round_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		round_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		bar.add_child(round_label)
+		_money_label = UIKit.make_number("$%d" % session.money, "small", Cfg.MONEY_COLOR)
+		bar.add_child(_money_label)
+		content.add_child(bar)
+	else:
+		add_header("Shop", "Round %d" % session.round_count, Cfg.ACCENT_PRIMARY)
+		_money_label = UIKit.make_number("$%d" % session.money, "medium", Cfg.MONEY_COLOR)
+		_money_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		content.add_child(_money_label)
 
-	_money_label = UIKit.make_number("$%d" % session.money, "medium", Cfg.MONEY_COLOR)
-	_money_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	content.add_child(_money_label)
-
-	content.add_child(UIKit.make_section("Your Inventory - hold to sell"))
+	# Hidden entirely while empty: on a phone it cost ~120px to say "(empty)".
+	_inventory_section = VBoxContainer.new()
+	_inventory_section.add_theme_constant_override("separation", 4)
+	content.add_child(_inventory_section)
+	_inventory_section.add_child(UIKit.make_section("Your Inventory - hold to sell"))
 	var inv_scroll := ScrollContainer.new()
 	inv_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	inv_scroll.custom_minimum_size.y = 88
-	content.add_child(inv_scroll)
+	inv_scroll.custom_minimum_size.y = 72.0 if compact else 88.0
+	inv_scroll.scroll_deadzone = 12
+	_inventory_section.add_child(inv_scroll)
 	_inventory_box = HBoxContainer.new()
 	_inventory_box.add_theme_constant_override("separation", 8)
 	inv_scroll.add_child(_inventory_box)
@@ -69,8 +89,10 @@ func _refresh_reroll() -> void:
 func _refresh_inventory() -> void:
 	for child in _inventory_box.get_children():
 		child.queue_free()
-	if session.cards.is_empty() and session.items.is_empty():
-		_inventory_box.add_child(UIKit.make_label("(empty)", "tiny", Cfg.GRAY))
+	var empty := session.cards.is_empty() and session.items.is_empty()
+	if _inventory_section:
+		_inventory_section.visible = not empty
+	if empty:
 		return
 
 	for i in session.cards.size():
@@ -136,20 +158,34 @@ func _make_offer_row(entry_name: String, rarity: String, description: String,
 	var rarity_col := Cfg.rarity_color(rarity)
 	var panel := UIKit.make_panel(Color(0.09, 0.09, 0.16), rarity_col)
 
-	var row: BoxContainer = VBoxContainer.new() if Layout.portrait else HBoxContainer.new()
+	var compact := Layout.is_compact()
+	# Which axis is scarce decides where the buy button goes. Portrait is narrow,
+	# so the button drops to its own full-width line; landscape is short, so it
+	# stays inline and the row keeps the icon's height.
+	var stack_button := Layout.portrait
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 8)
+	panel.add_child(outer)
+
+	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
-	panel.add_child(row)
+	outer.add_child(row)
 
 	var icon := CardIcon.new()
-	icon.custom_minimum_size = Vector2(104, 104)
+	var icon_size := 104.0
+	if Layout.is_phone_landscape():
+		icon_size = 72.0
+	elif compact:
+		icon_size = 84.0
+	icon.custom_minimum_size = Vector2(icon_size, icon_size)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	icon.interactive = false
 	icon.set_entry(entry_name, rarity)
-	if Layout.portrait:
-		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	row.add_child(icon)
 
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	text.add_theme_constant_override("separation", 4)
 	row.add_child(text)
 
@@ -161,13 +197,14 @@ func _make_offer_row(entry_name: String, rarity: String, description: String,
 
 	var desc := UIKit.make_label(description, "small", Cfg.LIGHT_GRAY)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.custom_minimum_size.x = 220
+	desc.custom_minimum_size.x = 180
 	text.add_child(desc)
 
 	var buy := UIKit.make_button("Buy  $%d" % cost, Cfg.ACCENT_GOOD, "small")
-	buy.custom_minimum_size.x = 150
-	if Layout.portrait:
+	if stack_button:
 		buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	else:
+		buy.custom_minimum_size.x = 130.0 if compact else 150.0
 	if inventory_full:
 		buy.disabled = true
 		buy.text = "Slots full"
@@ -177,7 +214,10 @@ func _make_offer_row(entry_name: String, rarity: String, description: String,
 	buy.pressed.connect(func():
 		if session.buy_shop_entry(kind, index):
 			refresh())
-	row.add_child(buy)
+	if stack_button:
+		outer.add_child(buy)
+	else:
+		row.add_child(buy)
 	return panel
 
 

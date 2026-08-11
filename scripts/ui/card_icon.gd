@@ -183,7 +183,7 @@ func _fit_model(model: Node, cam: Camera3D) -> void:
 	var centre := aabb.get_center()
 	model.position = -centre
 	var radius: float = maxf(aabb.size.length() * 0.5, 0.001)
-	cam.size = radius * 1.9
+	cam.size = radius * 1.62
 	cam.position = Vector3(0, radius * 0.45, radius * 4.0)
 	cam.look_at(Vector3.ZERO, Vector3.UP)
 	cam.near = 0.01

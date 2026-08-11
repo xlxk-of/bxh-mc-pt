@@ -35,6 +35,8 @@ func _ready() -> void:
 	await _shot_mode(LANDSCAPE, "phone_landscape")
 	await _shot_mode(PORTRAIT, "phone_portrait")
 
+	_verify_drag_gain()
+
 	print("form=%s portrait=%s scale=%.2f logical=%s" % [
 		Layout.form, Layout.portrait, get_window().content_scale_factor, Layout.logical_size()])
 	print("shots -> ", ProjectSettings.globalize_path(OUT_DIR))
@@ -71,6 +73,42 @@ func _shot_mode(size: Vector2i, tag: String) -> void:
 		await _shot(tag + "_dragging")
 		board.cancel_drag()
 		await _settle(0.2)
+
+	# Shop, the densest screen on a phone.
+	session.generate_shop_offers()
+	main._open_shop()
+	await _settle(0.9)
+	await _shot(tag + "_shop")
+	if main._active_screen:
+		main._active_screen.close()
+	await _settle(0.4)
+
+
+## The piece must track finger *motion* amplified by DRAG_GAIN, not the finger
+## position. Checked numerically because it is nearly impossible to eyeball.
+func _verify_drag_gain() -> void:
+	var session: GameSession = main.session
+	var board: BoardView = main._hud.board
+	if session.hand.is_empty():
+		session.generate_hand()
+
+	var rect := board.grid_rect()
+	var finger := board.get_global_transform() * (rect.position + rect.size * 0.5)
+	board.begin_drag(session.hand[0], 0, finger)
+	var start := board.piece_centre()
+	var lift := Layout.drag_lift(board.cell_size)
+
+	var delta := Vector2(60, -80)
+	board.update_drag(finger + delta)
+	var moved := board.piece_centre() - start
+	board.cancel_drag()
+
+	var expected := delta * BoardView.DRAG_GAIN
+	var ok_gain: bool = moved.is_equal_approx(expected)
+	print("drag gain: finger moved %s -> piece moved %s (expected %s) %s" % [
+		delta, moved, expected, "OK" if ok_gain else "FAIL"])
+	print("drag lift: piece starts %.1fpx above the finger (cell=%.0f) %s" % [
+		lift, board.cell_size, "OK" if lift > board.cell_size else "FAIL"])
 
 
 func _settle(seconds: float) -> void:
