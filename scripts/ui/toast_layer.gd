@@ -36,7 +36,7 @@ func _reposition() -> void:
 	_stack.size = Vector2(width, height)
 	var bottom: float = anchor_y
 	if is_nan(bottom):
-		bottom = vp.y * (0.60 if Layout.portrait else 0.80)
+		bottom = vp.y * (0.60 if Layout.is_compact() else 0.80)
 	bottom = clampf(bottom, height, vp.y)
 	_stack.position = Vector2((vp.x - width) * 0.5, bottom - height)
 
@@ -47,7 +47,7 @@ func post(text: String, color := Cfg.WHITE, duration := 1.5) -> void:
 		_stack.remove_child(oldest)
 		oldest.queue_free()
 
-	var label := UIKit.make_label(text, "small" if Layout.portrait else "body", color)
+	var label := UIKit.make_label(text, "small" if Layout.is_compact() else "body", color)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_constant_override("outline_size", 5)

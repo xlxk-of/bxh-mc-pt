@@ -61,7 +61,7 @@ func _make_contract(offer: Dictionary, index: int) -> Control:
 	v.add_child(curse)
 
 	var timers := UIKit.make_label(
-		"Curse lifts in %d rounds · expires in %d" % [offer["condition_deadline"], offer["expiration"]],
+		"Curse lifts in %d rounds, expires in %d" % [offer["condition_deadline"], offer["expiration"]],
 		"tiny", Cfg.TEXT_DIM)
 	timers.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	timers.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

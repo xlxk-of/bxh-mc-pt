@@ -14,7 +14,7 @@ var board: BoardView
 
 var _lane: BoxContainer
 var _board_holder: Control
-var _portrait_built := false
+var _built_mode := ""
 var _built := false
 
 # Live widgets rebuilt with the layout.
@@ -60,9 +60,17 @@ func bind(new_session: GameSession) -> void:
 	_build_layout()
 
 
+func _layout_mode() -> String:
+	if Layout.portrait:
+		return "portrait"
+	if Layout.is_phone_landscape():
+		return "phone_landscape"
+	return "wide"
+
+
 func _on_layout_changed() -> void:
 	UIKit.fill_viewport(self)
-	if _built and _portrait_built == Layout.portrait:
+	if _built and _built_mode == _layout_mode():
 		return
 	_build_layout()
 
@@ -80,12 +88,12 @@ func _build_layout() -> void:
 	_previews.clear()
 	_card_icons.clear()
 	_item_icons.clear()
-	_portrait_built = Layout.portrait
+	_built_mode = _layout_mode()
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var pad := 10 if Layout.portrait else 16
+	var pad := 10 if Layout.is_compact() else 16
 	margin.add_theme_constant_override("margin_left", pad)
 	margin.add_theme_constant_override("margin_right", pad)
 	margin.add_theme_constant_override("margin_top", pad)
@@ -99,7 +107,9 @@ func _build_layout() -> void:
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_board_holder.add_child(board)
 
-	if Layout.portrait:
+	if _built_mode == "phone_landscape":
+		_build_phone_landscape(margin)
+	elif Layout.portrait:
 		_lane = VBoxContainer.new()
 		_lane.add_theme_constant_override("separation", 8)
 		margin.add_child(_lane)
@@ -137,6 +147,29 @@ func _build_layout() -> void:
 	_refresh_tray()
 	_refresh_inventory()
 	_on_combo_changed(session.combo_streak, session.combo_miss_allowance)
+
+
+## Landscape phones get a single right-hand rail instead of two side panels:
+## a short screen cannot afford 500px of chrome, and everything interactive
+## ends up under the right thumb.
+func _build_phone_landscape(margin: MarginContainer) -> void:
+	_lane = HBoxContainer.new()
+	_lane.add_theme_constant_override("separation", 8)
+	margin.add_child(_lane)
+
+	_lane.add_child(_board_holder)
+
+	var rail := VBoxContainer.new()
+	rail.custom_minimum_size.x = minf(215.0, Layout.logical_size().x * 0.26)
+	rail.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	rail.add_theme_constant_override("separation", 6)
+	_lane.add_child(rail)
+
+	rail.add_child(_build_top_bar())
+	var tray := _build_tray(false, true)
+	tray.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	rail.add_child(tray)
+	rail.add_child(_build_inventory_strip())
 
 
 func _build_stats_panel() -> Control:
@@ -237,8 +270,8 @@ func _build_top_bar() -> Control:
 	flame_slot.add_child(_combo_flame)
 	h.add_child(flame_slot)
 
-	var btn := UIKit.make_button("≡", Cfg.PANEL_ACCENT, "small")
-	btn.custom_minimum_size = Vector2(Layout.touch_size(), Layout.touch_size())
+	var btn := UIKit.make_button("MENU", Cfg.PANEL_ACCENT, "small")
+	btn.custom_minimum_size = Vector2(Layout.touch_size() * 1.5, Layout.touch_size())
 	btn.pressed.connect(func(): request_settings.emit())
 	h.add_child(btn)
 	return panel
@@ -274,12 +307,12 @@ func _make_flame() -> GPUParticles2D:
 	return p
 
 
-func _build_tray(horizontal: bool) -> Control:
+func _build_tray(horizontal: bool, scrollable := false) -> Control:
 	var panel := UIKit.make_panel(Color(0.07, 0.07, 0.13), Cfg.PANEL_ACCENT)
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 6)
 	panel.add_child(outer)
-	if not horizontal:
+	if not horizontal and not scrollable:
 		outer.add_child(UIKit.make_label("NEXT PIECES", "tiny", Cfg.TEXT_DIM))
 
 	if horizontal:
@@ -287,8 +320,21 @@ func _build_tray(horizontal: bool) -> Control:
 		_tray_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	else:
 		_tray_box = VBoxContainer.new()
+		_tray_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_tray_box.add_theme_constant_override("separation", 8)
-	outer.add_child(_tray_box)
+
+	if scrollable:
+		# A short landscape phone cannot always fit three slots plus the strip.
+		# Scrolling keeps the tray's minimum height near zero so it yields space
+		# instead of pushing the whole rail off the bottom of the screen.
+		var scroll := ScrollContainer.new()
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		_tray_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(_tray_box)
+		outer.add_child(scroll)
+	else:
+		outer.add_child(_tray_box)
 	return panel
 
 
@@ -345,7 +391,7 @@ func _build_inventory_strip() -> Control:
 
 	var scroll := ScrollContainer.new()
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size.y = 84
+	scroll.custom_minimum_size.y = 64.0 if Layout.is_phone_landscape() else 84.0
 	v.add_child(scroll)
 
 	var row := HBoxContainer.new()
@@ -395,10 +441,17 @@ func _refresh_tray() -> void:
 	_previews.clear()
 	_pocket_preview = null
 
-	var slot: float = 76.0 if Layout.portrait else 84.0
+	var slot: float = 84.0
+	if Layout.is_phone_landscape():
+		slot = 68.0
+	elif Layout.is_compact():
+		slot = 76.0
 	for i in session.hand.size():
 		var p := PiecePreview.new()
 		p.custom_minimum_size = Vector2(slot, slot)
+		# Without this the preview stretches to the rail width but keeps its
+		# height, so tall pieces render tiny inside a wide, short box.
+		p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		p.index = i
 		p.set_shape(session.hand[i])
 		p.is_selected = i == session.selected_index
@@ -411,6 +464,7 @@ func _refresh_tray() -> void:
 	if session.has_card("Pocket Dimension"):
 		var pocket := PiecePreview.new()
 		pocket.custom_minimum_size = Vector2(slot, slot)
+		pocket.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		pocket.index = -1
 		pocket.is_pocket = true
 		pocket.set_shape(session.pocketed_piece if session.pocketed_piece != null else {})
@@ -430,7 +484,7 @@ func _refresh_inventory() -> void:
 	_card_icons.clear()
 	_item_icons.clear()
 
-	var slot: float = 56.0 if Layout.portrait else 66.0
+	var slot: float = 56.0 if Layout.is_compact() else 66.0
 	for i in session.max_cards:
 		var icon := CardIcon.new()
 		icon.custom_minimum_size = Vector2(slot, slot)
@@ -516,14 +570,14 @@ func _on_combo_changed(streak: int, chances: int) -> void:
 	if _combo_label == null:
 		return
 	if streak > 0:
-		_combo_label.text = "COMBO x%d" % streak if not Layout.portrait else "x%d" % streak
+		_combo_label.text = "x%d" % streak if Layout.is_compact() else "COMBO x%d" % streak
 		_combo_label.add_theme_color_override("font_color", Cfg.COMBO_TEXT_COLOR)
 		UIKit.pop(_combo_label, 1.0 + minf(streak * 0.02, 0.35), 0.22)
 	else:
-		_combo_label.text = "COMBO ---" if not Layout.portrait else "---"
+		_combo_label.text = "---" if Layout.is_compact() else "COMBO ---"
 		_combo_label.add_theme_color_override("font_color", Cfg.WHITE)
 	if _chances_label:
-		_chances_label.text = ("Chances: %d" % maxi(0, chances)) if not Layout.portrait else str(maxi(0, chances))
+		_chances_label.text = str(maxi(0, chances)) if Layout.is_compact() else "Chances: %d" % maxi(0, chances)
 
 
 func _on_fever_changed(level: int, _streak: int) -> void:

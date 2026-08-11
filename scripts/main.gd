@@ -234,12 +234,12 @@ func _start_new_run() -> void:
 func _continue_run() -> void:
 	var data := SaveGame.load_run()
 	if data.is_empty() or not session.from_save_dict(data):
-		session.post_message("Save could not be loaded — starting fresh.", Cfg.RED, 2.5)
+		session.post_message("Save could not be loaded - starting fresh.", Cfg.RED, 2.5)
 		_start_new_run()
 		return
 	_best_combo = session.combo_streak
 	_enter_run()
-	session.post_message("Run restored — round %d." % session.round_count, Cfg.ACCENT_GOOD, 2.0)
+	session.post_message("Run restored - round %d." % session.round_count, Cfg.ACCENT_GOOD, 2.0)
 
 
 func _on_request_screen(screen: String) -> void:

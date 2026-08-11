@@ -66,12 +66,15 @@ func _recompute_geometry() -> void:
 	if session == null:
 		return
 	var pad := 18.0
-	var usable := size - Vector2(pad * 2.0, pad * 2.0 + MESSAGE_BAND)
+	# On a short screen the reserved message strip costs more board than it is
+	# worth; toasts simply overlay the lower board there instead.
+	var band := 0.0 if size.y < 470.0 else MESSAGE_BAND
+	var usable := size - Vector2(pad * 2.0, pad * 2.0 + band)
 	cell_size = Layout.cell_size_for(usable, session.grid_rows, session.grid_cols)
 	var grid_px := Vector2(session.grid_cols, session.grid_rows) * cell_size
 	board_origin = Vector2(
 		(size.x - grid_px.x) * 0.5,
-		(size.y - MESSAGE_BAND - grid_px.y) * 0.5).floor()
+		(size.y - band - grid_px.y) * 0.5).floor()
 	geometry_changed.emit()
 	queue_redraw()
 
@@ -121,7 +124,7 @@ func end_drag(pointer_global: Vector2, commit := true) -> bool:
 	_update_pointer(pointer_global)
 	var placed := false
 	if commit and _pointer_inside and not _drag_shape.is_empty():
-		var origin := _ghost_origin(cell_at_point(_pointer_pos - Vector2(0, Layout.drag_lift())), _drag_shape)
+		var origin := _ghost_origin(cell_at_point(_pointer_pos - Vector2(0, Layout.drag_lift(cell_size))), _drag_shape)
 		origin = _snapped_origin(origin, _drag_shape)
 		if session.is_valid_placement(_drag_shape, origin.x, origin.y, session.soul_stamp_armed()):
 			session.ghost_pos = origin
@@ -153,7 +156,7 @@ func update_drag(pointer_global: Vector2) -> void:
 
 func _update_pointer(pointer_global: Vector2) -> void:
 	_pointer_pos = get_global_transform().affine_inverse() * pointer_global
-	var probe := _pointer_pos - Vector2(0, Layout.drag_lift() if dragging else 0.0)
+	var probe := _pointer_pos - Vector2(0, Layout.drag_lift(cell_size) if dragging else 0.0)
 	var cell := cell_at_point(probe)
 	_pointer_inside = in_bounds(cell)
 	if _pointer_inside and session != null:
@@ -174,7 +177,13 @@ func _ghost_origin(pointer_cell: Vector2i, shape: Dictionary) -> Vector2i:
 	return pointer_cell - Vector2i(s.y / 2, s.x / 2)
 
 
-## Forgiving drop: if the exact cell is blocked, accept a 1-cell nudge.
+## Snap to the nearest position the piece actually fits, searching outward in
+## rings. A generous radius is what makes the Block Blast style work: the piece
+## floats loosely under the thumb and the board decides where it belongs, so you
+## never have to place pixel-accurately with a finger covering the target.
+const SNAP_RADIUS := 2
+
+
 func _snapped_origin(origin: Vector2i, shape: Dictionary) -> Vector2i:
 	_snap_used = false
 	if session == null:
@@ -183,17 +192,20 @@ func _snapped_origin(origin: Vector2i, shape: Dictionary) -> Vector2i:
 	if session.is_valid_placement(shape, origin.x, origin.y, stamp):
 		return origin
 	var best := origin
-	var best_dist := 99.0
-	for dr in range(-1, 2):
-		for dc in range(-1, 2):
+	var best_dist := INF
+	for dr in range(-SNAP_RADIUS, SNAP_RADIUS + 1):
+		for dc in range(-SNAP_RADIUS, SNAP_RADIUS + 1):
 			if dr == 0 and dc == 0:
 				continue
 			var cand := origin + Vector2i(dr, dc)
-			if session.is_valid_placement(shape, cand.x, cand.y, stamp):
-				var d := Vector2(dr, dc).length()
-				if d < best_dist:
-					best_dist = d
-					best = cand
+			if not session.is_valid_placement(shape, cand.x, cand.y, stamp):
+				continue
+			# Prefer the smallest move, and break ties toward vertical nudges so
+			# the piece appears to fall into place rather than slide sideways.
+			var d := Vector2(dc, dr).length() + (0.05 if dr != 0 else 0.0)
+			if d < best_dist:
+				best_dist = d
+				best = cand
 	_snap_used = best != origin
 	return best
 
@@ -492,32 +504,83 @@ func _draw_ghost() -> void:
 	var origin: Vector2i = session.ghost_pos
 	var stamp := session.soul_stamp_armed()
 	var valid := session.is_valid_placement(shape, origin.x, origin.y, stamp)
-	var tint := Cfg.GREEN if valid else Cfg.RED
+	var piece_color: Color = shape.get("color", Cfg.WHITE)
+	var tint := piece_color if valid else Cfg.RED
 	if stamp and valid:
 		tint = Cfg.YELLOW
 
-	var pulse := 0.45 + 0.15 * sin(_time * 7.0)
+	# --- Landing preview -------------------------------------------------
+	# This has to be unmistakable: while dragging, the finger is nowhere near
+	# the target, so the board itself must answer "where does this go?".
+	var pulse := 0.5 + 0.5 * sin(_time * 5.0)
+	var inset: float = maxf(1.0, cell_size * 0.06)
 	for off in shape.get("coords", []):
 		var rr: int = origin.x + off.x
 		var cc: int = origin.y + off.y
 		if not in_bounds(Vector2i(rr, cc)):
 			continue
-		var r := cell_rect(rr, cc).grow(-maxf(1.0, cell_size * 0.06))
-		draw_rect(r, Color(tint.r, tint.g, tint.b, pulse * 0.55), true)
-		draw_rect(r, Color(tint.r, tint.g, tint.b, 0.95), false, 2.0)
+		var cell := cell_rect(rr, cc)
+		var r := cell.grow(-inset)
+		if valid:
+			var solid := dragging and _pointer_inside
+			var fill: float = 0.95 if solid else 0.60
+			draw_rect(cell, Color(0, 0, 0, 0.45), true)
+			draw_rect(r, Color(tint.r, tint.g, tint.b, fill), true)
+			draw_rect(Rect2(r.position, Vector2(r.size.x, r.size.y * 0.34)),
+				Color(1, 1, 1, 0.20), true)
+			draw_rect(Rect2(Vector2(r.position.x, r.end.y - r.size.y * 0.24),
+				Vector2(r.size.x, r.size.y * 0.24)), Color(0, 0, 0, 0.22), true)
+			draw_rect(r, Color(1, 1, 1, 0.55 + 0.35 * pulse), false, maxf(2.0, cell_size * 0.07))
+		else:
+			draw_rect(r, Color(tint.r, tint.g, tint.b, 0.30), true)
+			draw_rect(r, Color(tint.r, tint.g, tint.b, 0.85), false, maxf(2.0, cell_size * 0.06))
 
-	# While dragging on touch the piece also renders at the finger, lifted, so
-	# it never disappears under the thumb.
-	if dragging and Layout.drag_lift() > 0.0:
-		var lift := Vector2(0, -Layout.drag_lift())
+	# Outline the whole footprint so the piece reads as one object, not N cells.
+	if valid:
+		_draw_footprint_outline(shape, origin, Color(1, 1, 1, 0.30 + 0.30 * pulse))
+
+	# --- The piece itself, floating free above the finger -----------------
+	# Only when it is NOT already resolved onto the board. Over a valid drop the
+	# snapped preview above IS the piece, and drawing a second free-floating
+	# copy on top of it just produces a confusing double image.
+	var lift := Layout.drag_lift(cell_size)
+	if dragging and lift > 0.0 and not (valid and _pointer_inside):
 		var s := Cfg.shape_size(shape)
 		var half := Vector2(s.x, s.y) * cell_size * 0.5
+		var anchor := _pointer_pos + Vector2(0, -lift) - half
 		for off in shape.get("coords", []):
-			var pos := _pointer_pos + lift - half + Vector2(off.y, off.x) * cell_size
-			var r := Rect2(pos, Vector2(cell_size, cell_size)).grow(-2.0)
-			var col: Color = shape["color"]
-			draw_rect(r, Color(col.r, col.g, col.b, 0.85), true)
-			draw_rect(r, Color(1, 1, 1, 0.55), false, 1.5)
+			var pos := anchor + Vector2(off.y, off.x) * cell_size
+			var r := Rect2(pos, Vector2(cell_size, cell_size)).grow(-inset)
+			# Shadow first, so the piece reads as hovering over the board.
+			draw_rect(Rect2(r.position + Vector2(0, cell_size * 0.12), r.size),
+				Color(0, 0, 0, 0.35), true)
+			draw_rect(r, Color(piece_color.r, piece_color.g, piece_color.b, 0.97), true)
+			draw_rect(Rect2(r.position, Vector2(r.size.x, r.size.y * 0.34)),
+				Color(1, 1, 1, 0.22), true)
+			draw_rect(Rect2(Vector2(r.position.x, r.end.y - r.size.y * 0.24),
+				Vector2(r.size.x, r.size.y * 0.24)), Color(0, 0, 0, 0.22), true)
+			draw_rect(r, Color(1, 1, 1, 0.75), false, maxf(1.5, cell_size * 0.05))
+
+
+## Traces the outer border of a shape's footprint by drawing only the edges that
+## have no neighbouring cell, which reads far cleaner than boxing every cell.
+func _draw_footprint_outline(shape: Dictionary, origin: Vector2i, color: Color) -> void:
+	var filled := {}
+	for off in shape.get("coords", []):
+		filled[Vector2i(origin.x + off.x, origin.y + off.y)] = true
+	var width: float = maxf(2.0, cell_size * 0.09)
+	for cell: Vector2i in filled:
+		if not in_bounds(cell):
+			continue
+		var r := cell_rect(cell.x, cell.y)
+		if not filled.has(cell + Vector2i(-1, 0)):
+			draw_line(r.position, Vector2(r.end.x, r.position.y), color, width)
+		if not filled.has(cell + Vector2i(1, 0)):
+			draw_line(Vector2(r.position.x, r.end.y), r.end, color, width)
+		if not filled.has(cell + Vector2i(0, -1)):
+			draw_line(r.position, Vector2(r.position.x, r.end.y), color, width)
+		if not filled.has(cell + Vector2i(0, 1)):
+			draw_line(Vector2(r.end.x, r.position.y), r.end, color, width)
 
 
 func _draw_pending_effect() -> void:

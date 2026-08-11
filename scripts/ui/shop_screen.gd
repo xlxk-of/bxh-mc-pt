@@ -27,7 +27,7 @@ func _build() -> void:
 	_money_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(_money_label)
 
-	content.add_child(UIKit.make_section("Your Inventory  —  hold to sell"))
+	content.add_child(UIKit.make_section("Your Inventory - hold to sell"))
 	var inv_scroll := ScrollContainer.new()
 	inv_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	inv_scroll.custom_minimum_size.y = 88
@@ -87,7 +87,7 @@ func _refresh_inventory() -> void:
 				"index": ic.index, "name": session.cards[ic.index]["name"],
 				"price": session.sell_price_for_card(session.cards[ic.index])}))
 		icon.pressed.connect(func(ic: CardIcon):
-			session.post_message("%s — hold to sell." % ic.entry_name, Cfg.LIGHT_GRAY, 1.0))
+			session.post_message("%s - hold to sell." % ic.entry_name, Cfg.LIGHT_GRAY, 1.0))
 		_inventory_box.add_child(icon)
 
 	if not session.items.is_empty():
@@ -173,7 +173,7 @@ func _make_offer_row(entry_name: String, rarity: String, description: String,
 		buy.text = "Slots full"
 	elif session.money < cost:
 		buy.disabled = true
-		buy.text = "$%d — short" % cost
+		buy.text = "$%d - short" % cost
 	buy.pressed.connect(func():
 		if session.buy_shop_entry(kind, index):
 			refresh())

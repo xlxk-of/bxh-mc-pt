@@ -28,7 +28,7 @@ func _build() -> void:
 
 	v.add_child(_stat("FINAL SCORE", str(final_score), "large", Cfg.WHITE))
 	if is_new_best:
-		var badge := UIKit.make_label("★ NEW HIGH SCORE ★", "small", Cfg.ACCENT_PRIMARY)
+		var badge := UIKit.make_label("* NEW HIGH SCORE *", "small", Cfg.ACCENT_PRIMARY)
 		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(badge)
 	v.add_child(UIKit.spacer(8))

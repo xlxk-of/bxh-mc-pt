@@ -103,9 +103,11 @@ func _draw() -> void:
 	if coords.is_empty():
 		return
 	var dims := Cfg.shape_size(shape)
-	var pad := 12.0
+	var pad: float = maxf(6.0, minf(size.x, size.y) * 0.12)
 	var block: float = minf((size.x - pad * 2.0) / float(dims.x), (size.y - pad * 2.0) / float(dims.y))
-	block = minf(block, 26.0)
+	# Cap relative to the slot, not at a fixed pixel size, so a piece fills the
+	# space it is given on a phone instead of floating in the middle of it.
+	block = minf(block, minf(size.x, size.y) * 0.34)
 	var total := Vector2(dims.x, dims.y) * block
 	var origin := (size - total) * 0.5 + Vector2(0, -1.0 * _hover * 3.0)
 

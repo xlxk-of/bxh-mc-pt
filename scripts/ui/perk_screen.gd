@@ -15,7 +15,7 @@ func _init() -> void:
 func _build() -> void:
 	if session == null:
 		return
-	add_header("Perk Selection", "Round %d — choose one" % session.round_count, Cfg.MAGENTA)
+	add_header("Perk Selection", "Round %d - choose one" % session.round_count, Cfg.MAGENTA)
 
 	var row: BoxContainer = VBoxContainer.new() if Layout.portrait else HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)

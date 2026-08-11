@@ -22,13 +22,49 @@ var safe_area := Rect2i()
 
 var _last_size := Vector2i.ZERO
 var _pending_emit := false
+var _pixel_ratio := 1.0
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	touch_primary = DisplayServer.is_touchscreen_available() and OS.get_name() in ["Android", "iOS"]
+	touch_primary = _detect_touch()
+	_pixel_ratio = _detect_pixel_ratio()
 	get_tree().root.size_changed.connect(_recalculate)
 	_recalculate()
+
+
+## Native builds report their platform directly. The web build does not:
+## OS.get_name() is "Web" everywhere, so an iPhone running the PWA would
+## otherwise be treated as a desktop and get desktop-sized everything.
+func _detect_touch() -> bool:
+	if OS.get_name() in ["Android", "iOS"]:
+		return true
+	if OS.has_feature("web_android") or OS.has_feature("web_ios"):
+		return true
+	# Any other touch-capable web target (Android tablets, iPadOS requesting the
+	# desktop site) still wants thumb-sized controls.
+	if OS.has_feature("web") and DisplayServer.is_touchscreen_available():
+		return true
+	return false
+
+
+## Physical pixels alone cannot separate a phone from a tablet -- a modern phone
+## has more of them than an old laptop. CSS pixels can, so divide out the device
+## pixel ratio. screen_get_dpi() is unreliable on web (it reports 96 * ratio,
+## which makes a 6" phone measure as a 10" tablet), hence asking the browser.
+func _detect_pixel_ratio() -> float:
+	if OS.has_feature("web"):
+		var value: Variant = JavaScriptBridge.eval("window.devicePixelRatio", true)
+		if value is float or value is int:
+			return clampf(float(value), 1.0, 4.0)
+	var s := DisplayServer.screen_get_scale()
+	return clampf(s, 1.0, 4.0) if s > 0.0 else 1.0
+
+
+## Size in CSS/points rather than raw pixels -- the number that actually tracks
+## physical screen size.
+func reference_size(size: Vector2i) -> Vector2:
+	return Vector2(size) / maxf(_pixel_ratio, 0.5)
 
 
 ## Polling the window each frame makes the pass self-correcting: resize events
@@ -69,16 +105,17 @@ func _recalculate() -> void:
 	_pending_emit = true
 
 
+## Phone vs tablet from the CSS short side: phones land around 320-450pt,
+## tablets around 700-1100pt, regardless of how many physical pixels they pack.
 func _detect_form(size: Vector2i) -> Form:
 	if not touch_primary:
 		return Form.DESKTOP
-	# Diagonal in inches decides phone vs tablet; fall back to pixel count when
-	# the platform reports a nonsense DPI.
-	var dpi := DisplayServer.screen_get_dpi()
-	if dpi > 40:
-		var inches := Vector2(size).length() / float(dpi)
-		return Form.TABLET if inches >= 6.5 else Form.PHONE
-	return Form.TABLET if mini(size.x, size.y) >= 900 else Form.PHONE
+	var short_pt: float = minf(reference_size(size).x, reference_size(size).y)
+	if short_pt <= 550.0:
+		return Form.PHONE
+	if short_pt <= 1100.0:
+		return Form.TABLET
+	return Form.DESKTOP
 
 
 ## The scale is chosen so the *short* side always lands near a target number of
@@ -91,7 +128,9 @@ func _scale_for(size: Vector2i) -> float:
 	var target := 720.0
 	match form:
 		Form.PHONE:
-			target = 560.0 if portrait else 640.0
+			# Landscape phones are height-starved: a smaller target means fewer,
+			# larger logical pixels, so the board and tray both stay usable.
+			target = 620.0 if portrait else 430.0
 		Form.TABLET:
 			target = 820.0
 		Form.DESKTOP:
@@ -123,10 +162,24 @@ func cell_size_for(available: Vector2, rows: int, cols: int) -> float:
 	return clampf(floorf(minf(by_w, by_h)), 18.0, 96.0)
 
 
-## How far above the finger a dragged piece floats so it stays visible.
-func drag_lift() -> float:
-	return 78.0 if touch_primary else 0.0
+## How far above the finger a dragged piece floats. Scaled to the board so the
+## piece clears the thumb on every screen size instead of at one fixed offset.
+func drag_lift(cell_size := 40.0) -> float:
+	if not touch_primary:
+		return 0.0
+	return clampf(cell_size * 1.7, 70.0, 190.0)
 
 
 func is_phone() -> bool:
 	return form == Form.PHONE
+
+
+## Phones in landscape need their own arrangement: the desktop three-column
+## layout spends most of a short screen on side rails.
+func is_phone_landscape() -> bool:
+	return form == Form.PHONE and not portrait
+
+
+## True when the compact, single-rail arrangement should be used.
+func is_compact() -> bool:
+	return form == Form.PHONE or (form == Form.TABLET and portrait)
