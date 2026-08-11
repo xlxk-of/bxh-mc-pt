@@ -9,9 +9,8 @@ extends RefCounted
 ##   numeric - Sixtyfour Convergence, used for score / money / combo readouts.
 ##   ui      - the engine default sans, used for body copy and card text.
 ##
-## PixelGamer ships as a personal-use build that substitutes a watermark glyph
-## for every digit and punctuation mark, so it is deliberately not used for any
-## text the player reads. It stays in assets/fonts for reference only.
+## PixelGamer is deliberately absent: the bundled file was a demo-licensed build
+## that substitutes a watermark glyph for every digit and punctuation mark.
 const FONT_DISPLAY := "res://assets/fonts/Warpixes.ttf"
 const FONT_NUMERIC := "res://assets/fonts/SixtyfourConvergence.ttf"
 
