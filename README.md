@@ -44,7 +44,8 @@ Giga Boss cycle, a JSON save round-trip, column collapse, and a six-run soak.
 | Action | Touch | Mouse / keyboard |
 | --- | --- | --- |
 | Place a piece | drag from the tray, release on the board | click a piece, then click a cell — or drag |
-| Aim | piece floats above the finger; drops snap 1 cell | ghost follows the cursor |
+| Aim | piece floats ~112pt above the finger and tracks finger *motion* at 2x, so a short flick from the tray reaches the top row; drops snap up to 2 cells | ghost follows the cursor 1:1 |
+| Aim, Direct mode | piece sits under the finger, 1:1 | — |
 | Card special action | press and hold | right-click |
 | Pocket Dimension | double-tap a piece / the pocket | double-click |
 | Cancel a targeted item | back gesture | Esc or right-click |
@@ -59,6 +60,15 @@ portrait, 640/560 phone, 820 tablet — which is what makes a tall narrow window
 scale *up* instead of shrinking the UI into a corner. `HUD` rebuilds between a
 three-column landscape layout and a stacked portrait layout on orientation
 change.
+
+Anything that has to be *physically* big — tap targets, body copy, the drag
+lift — is specified in points and multiplied by `Layout.points_to_logical()`.
+A phone is deliberately handed more logical pixels than it has points (620
+logical across a 402pt screen), so a raw "60px" button really renders at 39pt,
+under the 44pt HIG floor. Touch mode itself is detected from the platform, then
+the browser's pointer hardware, and finally from the first real touch event —
+whichever fires first wins, and **Settings → Touch layout** overrides all three
+for browsers that report a desktop user agent from a home-screen PWA.
 
 ## Steam
 

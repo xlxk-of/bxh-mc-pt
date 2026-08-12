@@ -15,6 +15,7 @@ var _scrim: ColorRect
 var _frame: Control
 var _closing := false
 var _built_portrait := false
+var _built_touch := false
 var _margin: MarginContainer
 
 
@@ -63,6 +64,7 @@ func _ready() -> void:
 		_frame.add_child(content)
 
 	_built_portrait = Layout.portrait
+	_built_touch = Layout.touch_primary
 	_build()
 	_animate_in()
 
@@ -79,19 +81,37 @@ func _size_frame() -> void:
 	if _frame == null:
 		return
 	var available := Layout.logical_size() - Vector2(pad, pad) * 2.0
-	_frame.custom_minimum_size.x = minf(max_content_width, available.x)
+	_frame.custom_minimum_size.x = minf(content_width(), available.x)
 	if use_scroll:
 		# Scroll views must be told how tall to be; their own minimum is zero.
 		_frame.custom_minimum_size.y = maxf(120.0, available.y)
 
 
-## Rotating the phone changes the arrangement every screen was built for, so the
-## contents are thrown away and rebuilt rather than left mis-shaped.
+## Widest the centred content column is allowed to get. Screens that want a
+## different column on a phone than on a desktop override this; it is re-read on
+## every rebuild, so the answer may change while the screen is open.
+func content_width() -> float:
+	return max_content_width
+
+
+## Rotating the phone -- or switching between the touch and desktop layouts --
+## changes the arrangement every screen was built for, so the contents are
+## thrown away and rebuilt rather than left mis-shaped.
 func _on_layout_changed() -> void:
 	UIKit.fill_viewport(self)
-	if _closing or content == null or _built_portrait == Layout.portrait:
+	if _closing or content == null:
+		return
+	if _built_portrait == Layout.portrait and _built_touch == Layout.touch_primary:
 		return
 	_built_portrait = Layout.portrait
+	_built_touch = Layout.touch_primary
+	rebuild()
+
+
+## Tear down the contents and re-run _build() against the current metrics.
+func rebuild() -> void:
+	if _closing or content == null:
+		return
 	# The content column was sized for the old orientation; without this the
 	# rebuilt screen keeps a portrait-width frame on a landscape display.
 	_size_frame()

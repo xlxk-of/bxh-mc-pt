@@ -60,6 +60,7 @@ func bind(new_session: GameSession) -> void:
 	_build_layout()
 
 
+## Which of the three arrangements to build.
 func _layout_mode() -> String:
 	if Layout.portrait:
 		return "portrait"
@@ -68,9 +69,16 @@ func _layout_mode() -> String:
 	return "wide"
 
 
+## What was last built, arrangement *and* input device. Flipping between the
+## touch and desktop layouts changes every metric the panels were sized with, so
+## it has to force a rebuild exactly like a rotation does.
+func _layout_key() -> String:
+	return _layout_mode() + ("_touch" if Layout.touch_primary else "")
+
+
 func _on_layout_changed() -> void:
 	UIKit.fill_viewport(self)
-	if _built and _built_mode == _layout_mode():
+	if _built and _built_mode == _layout_key():
 		return
 	_build_layout()
 
@@ -88,7 +96,8 @@ func _build_layout() -> void:
 	_previews.clear()
 	_card_icons.clear()
 	_item_icons.clear()
-	_built_mode = _layout_mode()
+	var mode := _layout_mode()
+	_built_mode = _layout_key()
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -107,7 +116,7 @@ func _build_layout() -> void:
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_board_holder.add_child(board)
 
-	if _built_mode == "phone_landscape":
+	if mode == "phone_landscape":
 		_build_phone_landscape(margin)
 	elif Layout.portrait:
 		_lane = VBoxContainer.new()
@@ -441,11 +450,17 @@ func _refresh_tray() -> void:
 	_previews.clear()
 	_pocket_preview = null
 
+	# The tray is where every drag begins, so a slot is sized off the tap-target
+	# metric rather than at a fixed pixel size: 76px is a roomy slot with a
+	# mouse and a cramped one under a thumb. Landscape phones stay small because
+	# the rail they sit in is only ~215px wide.
 	var slot: float = 84.0
 	if Layout.is_phone_landscape():
-		slot = 68.0
+		slot = maxf(68.0, Layout.touch_size() * 1.25)
 	elif Layout.is_compact():
-		slot = 76.0
+		slot = maxf(76.0, Layout.touch_size() * 1.7)
+	elif Layout.touch_primary:
+		slot = maxf(84.0, Layout.touch_size() * 1.5)
 	for i in session.hand.size():
 		var p := PiecePreview.new()
 		p.custom_minimum_size = Vector2(slot, slot)

@@ -16,6 +16,10 @@ var screen_shake := 1.0
 ## 0 = Default (Block Blast style: the piece tracks finger motion, amplified).
 ## 1 = Direct (the piece sits at the finger, 1:1).
 var placement_mode := 0
+## 0 = auto-detect, 1 = force the touch layout, 2 = force the desktop layout.
+## An escape hatch for browsers that lie about their pointer hardware -- a
+## home-screen PWA can report a desktop user agent and get 40px buttons.
+var touch_override := 0
 var haptics := true
 var control_hint_shown := false
 var high_score := 0
@@ -39,6 +43,7 @@ func load_settings() -> void:
 	screen_shake = cf.get_value("display", "shake", screen_shake)
 	haptics = cf.get_value("input", "haptics", haptics)
 	placement_mode = cf.get_value("input", "placement_mode", placement_mode)
+	touch_override = cf.get_value("input", "touch_override", touch_override)
 	control_hint_shown = cf.get_value("input", "hint_shown", control_hint_shown)
 	high_score = cf.get_value("score", "high", high_score)
 
@@ -52,6 +57,7 @@ func save_settings() -> void:
 	cf.set_value("display", "shake", screen_shake)
 	cf.set_value("input", "haptics", haptics)
 	cf.set_value("input", "placement_mode", placement_mode)
+	cf.set_value("input", "touch_override", touch_override)
 	cf.set_value("input", "hint_shown", control_hint_shown)
 	cf.set_value("score", "high", high_score)
 	cf.save(SETTINGS_PATH)

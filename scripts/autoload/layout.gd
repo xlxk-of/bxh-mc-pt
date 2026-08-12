@@ -12,7 +12,15 @@ signal layout_changed
 enum Form { PHONE, TABLET, DESKTOP }
 
 const BASE_SIZE := Vector2i(1280, 720)
-const MIN_TOUCH_PX := 60.0   # logical px; comfortably above the HIG minimum
+## Tap targets and body copy are sized in *physical points*, not logical pixels.
+## A phone packs ~620 logical pixels into a 402pt-wide screen, so a "60 logical
+## px" button is really 39pt -- under Apple's 44pt floor. 48pt clears both the
+## iOS (44pt) and Android (48dp) minimums.
+const MIN_TOUCH_PT := 48.0
+## How far above the finger a dragged piece floats, in physical points. A thumb
+## plus the knuckle behind it covers roughly 100pt, which is why Block Blast
+## lifts the piece clear of the whole hand rather than just the fingertip.
+const DRAG_LIFT_PT := 112.0
 
 var form: Form = Form.DESKTOP
 var portrait := false
@@ -23,14 +31,29 @@ var safe_area := Rect2i()
 var _last_size := Vector2i.ZERO
 var _pending_emit := false
 var _pixel_ratio := 1.0
+var _detected_touch := false
+var _touch_seen := false
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	touch_primary = _detect_touch()
+	_detected_touch = _detect_touch()
+	touch_primary = _resolve_touch()
 	_pixel_ratio = _detect_pixel_ratio()
 	get_tree().root.size_changed.connect(_recalculate)
 	_recalculate()
+
+
+## A finger on the glass is the one signal that cannot be wrong, so it wins over
+## every guess below. Mice never produce screen-touch events (Godot only
+## synthesises them the other way round, and only when explicitly asked), so
+## this cannot misfire on a desktop.
+func _input(event: InputEvent) -> void:
+	if _touch_seen:
+		return
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		_touch_seen = true
+		refresh_touch_mode()
 
 
 ## Native builds report their platform directly. The web build does not:
@@ -41,11 +64,40 @@ func _detect_touch() -> bool:
 		return true
 	if OS.has_feature("web_android") or OS.has_feature("web_ios"):
 		return true
-	# Any other touch-capable web target (Android tablets, iPadOS requesting the
-	# desktop site) still wants thumb-sized controls.
-	if OS.has_feature("web") and DisplayServer.is_touchscreen_available():
-		return true
+	if OS.has_feature("web"):
+		# The feature tags above are user-agent sniffing, and a home-screen PWA
+		# or a browser in "Request Desktop Site" mode reports a desktop UA. Ask
+		# the browser about the pointer hardware instead, which it answers
+		# honestly either way.
+		var probe: Variant = JavaScriptBridge.eval("""
+			(navigator.maxTouchPoints || 0) > 0
+			|| 'ontouchstart' in window
+			|| window.matchMedia('(pointer: coarse)').matches
+		""", true)
+		if typeof(probe) == TYPE_BOOL and probe:
+			return true
+		if DisplayServer.is_touchscreen_available():
+			return true
 	return false
+
+
+## Detection is a guess; the player's setting is not. 0 = auto, 1 = force touch,
+## 2 = force desktop.
+func _resolve_touch() -> bool:
+	match SaveGame.touch_override:
+		1: return true
+		2: return false
+	return _detected_touch or _touch_seen
+
+
+## Re-evaluates touch mode and re-flows the UI if the answer changed. Called by
+## the settings screen and by the first touch event.
+func refresh_touch_mode() -> void:
+	var want := _resolve_touch()
+	if want == touch_primary:
+		return
+	touch_primary = want
+	_recalculate()
 
 
 ## Physical pixels alone cannot separate a phone from a tablet -- a modern phone
@@ -148,9 +200,31 @@ func logical_size() -> Vector2:
 	return Vector2(win.size) / maxf(win.content_scale_factor, 0.01)
 
 
+## How many logical pixels cover one physical point on this display. This is the
+## bridge between "how big is it in the layout" and "how big is it under a
+## thumb": the stretch pass deliberately hands a phone *more* logical pixels
+## than it has points, so anything that must stay physically large has to be
+## multiplied by this or it silently shrinks.
+func points_to_logical() -> float:
+	var factor := get_window().content_scale_factor
+	if factor <= 0.01:
+		return 1.0
+	return clampf(_pixel_ratio / factor, 0.75, 3.0)
+
+
 ## Minimum comfortable button height for the current input device.
 func touch_size() -> float:
-	return MIN_TOUCH_PX if touch_primary else 40.0
+	if not touch_primary:
+		return 40.0
+	return maxf(56.0, MIN_TOUCH_PT * points_to_logical())
+
+
+## Type has to grow by the same ratio as tap targets, or a phone ends up with
+## physically *smaller* text than the desktop the layout was designed on.
+func text_scale() -> float:
+	if not touch_primary:
+		return 1.0
+	return clampf(points_to_logical(), 1.0, 1.7)
 
 
 ## Board cell size that fits `available` while staying inside sane bounds.
@@ -162,12 +236,13 @@ func cell_size_for(available: Vector2, rows: int, cols: int) -> float:
 	return clampf(floorf(minf(by_w, by_h)), 18.0, 96.0)
 
 
-## How far above the finger a dragged piece floats. Scaled to the board so the
-## piece clears the thumb on every screen size instead of at one fixed offset.
+## How far above the finger the *bottom edge* of a dragged piece floats. Kept in
+## physical points so the gap is the same real-world distance on every handset,
+## with a board-relative floor so it never reads as less than two rows.
 func drag_lift(cell_size := 40.0) -> float:
 	if not touch_primary:
 		return 0.0
-	return clampf(cell_size * 1.7, 70.0, 190.0)
+	return maxf(cell_size * 2.0, DRAG_LIFT_PT * points_to_logical())
 
 
 func is_phone() -> bool:

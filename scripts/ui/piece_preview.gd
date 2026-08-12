@@ -32,7 +32,11 @@ var _mouse_in := false
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	custom_minimum_size = Vector2(84, 84)
+	# Only a fallback. Callers that size their slots -- the HUD tray sizes its
+	# own off the tap-target metric -- set this before the node enters the tree,
+	# and stomping their value here is what used to pin every tray to 84px.
+	if custom_minimum_size == Vector2.ZERO:
+		custom_minimum_size = Vector2(84, 84)
 	mouse_entered.connect(func(): _mouse_in = true)
 	mouse_exited.connect(func(): _mouse_in = false)
 	set_process(true)

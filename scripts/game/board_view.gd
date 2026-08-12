@@ -4,9 +4,10 @@ extends Control
 ## both control schemes:
 ##
 ##   * Drag  - press a tray piece, drag it over the board, release to drop.
-##             The piece floats above the finger and tracks finger *motion*
-##             rather than absolute position, amplified by DRAG_GAIN, so a short
-##             thumb swipe can reach the top of the board.
+##             The piece floats a hand's width above the finger and tracks
+##             finger *motion* rather than absolute position, amplified by
+##             DRAG_GAIN, so a short thumb swipe from the tray in the bottom
+##             third of the screen reaches the top row.
 ##   * Tap   - tap a tray piece to select, then tap a cell to drop it there.
 ##   * Mouse - the ghost simply follows the cursor; click to drop.
 ##
@@ -36,6 +37,7 @@ var drag_index := -1
 var _drag_shape: Dictionary = {}
 var _drag_finger_start := Vector2.ZERO
 var _drag_piece_anchor := Vector2.ZERO
+var _drag_lift := 0.0
 var _pointer_pos := Vector2.ZERO
 var _pointer_inside := false
 var _ghost_valid := false
@@ -83,9 +85,14 @@ func _recompute_geometry() -> void:
 	var usable := size - Vector2(pad * 2.0, pad * 2.0 + band)
 	cell_size = Layout.cell_size_for(usable, session.grid_rows, session.grid_cols)
 	var grid_px := Vector2(session.grid_cols, session.grid_rows) * cell_size
+	# On a portrait phone the grid is width-limited, so the holder ends up far
+	# taller than the board and centring leaves a dead strip between the last
+	# row and the tray. Sitting the grid lower shortens every drag, which is the
+	# whole point of the tray living in the bottom third of the screen.
+	var bias := 0.62 if (Layout.touch_primary and Layout.portrait) else 0.5
 	board_origin = Vector2(
 		(size.x - grid_px.x) * 0.5,
-		(size.y - band - grid_px.y) * 0.5).floor()
+		maxf(0.0, size.y - band - grid_px.y) * bias).floor()
 	geometry_changed.emit()
 	queue_redraw()
 
@@ -128,7 +135,12 @@ func begin_drag(shape: Dictionary, hand_index: int, pointer_global: Vector2) -> 
 	# every later sample moves it by the finger delta times DRAG_GAIN.
 	_pointer_pos = get_global_transform().affine_inverse() * pointer_global
 	_drag_finger_start = _pointer_pos
-	_drag_piece_anchor = _pointer_pos - Vector2(0, Layout.drag_lift(cell_size))
+	# drag_lift() is the gap under the piece's *bottom edge*, so the shape's own
+	# half-height is added on top. Without that a 4-tall bar would still sit
+	# under the thumb no matter how large the lift is.
+	var half_height := Cfg.shape_size(shape).y * cell_size * 0.5
+	_drag_lift = Layout.drag_lift(cell_size)
+	_drag_piece_anchor = _pointer_pos - Vector2(0, _drag_lift + half_height)
 	_update_pointer(pointer_global)
 	drag_state_changed.emit(true)
 	queue_redraw()
@@ -551,6 +563,10 @@ func _draw_ghost() -> void:
 	# the target, so the board itself must answer "where does this go?".
 	var pulse := 0.5 + 0.5 * sin(_time * 5.0)
 	var inset: float = maxf(1.0, cell_size * 0.06)
+	# True only when a separate piece is being drawn above the finger. With a
+	# mouse there is no lift, so the footprint below *is* the piece and has to
+	# keep its colour.
+	var floating := dragging and _drag_lift > 0.0
 	for off in shape.get("coords", []):
 		var rr: int = origin.x + off.x
 		var cc: int = origin.y + off.y
@@ -558,9 +574,19 @@ func _draw_ghost() -> void:
 			continue
 		var cell := cell_rect(rr, cc)
 		var r := cell.grow(-inset)
-		if valid:
-			var solid := dragging and _pointer_inside
-			var fill: float = 0.95 if solid else 0.60
+		if valid and floating:
+			# A dark silhouette, never a colour copy. The bright piece floating
+			# above the finger is the object being moved; this is only the hole
+			# it will drop into, and two saturated copies of the same shape a
+			# few pixels apart read as a rendering bug.
+			draw_rect(cell, Color(0, 0, 0, 0.55), true)
+			draw_rect(r, Color(tint.r * 0.3, tint.g * 0.3, tint.b * 0.3, 0.8), true)
+			draw_rect(r, Color(1, 1, 1, 0.4 + 0.35 * pulse), false, maxf(2.0, cell_size * 0.07))
+		elif valid:
+			# Nothing floats above a mouse cursor, and tap-to-place has no
+			# floating piece either, so here the footprint stands in for the
+			# piece and is drawn in full colour.
+			var fill: float = 0.95 if (dragging and _pointer_inside) else 0.60
 			draw_rect(cell, Color(0, 0, 0, 0.45), true)
 			draw_rect(r, Color(tint.r, tint.g, tint.b, fill), true)
 			draw_rect(Rect2(r.position, Vector2(r.size.x, r.size.y * 0.34)),
@@ -577,11 +603,11 @@ func _draw_ghost() -> void:
 		_draw_footprint_outline(shape, origin, Color(1, 1, 1, 0.30 + 0.30 * pulse))
 
 	# --- The piece itself, floating free above the finger -----------------
-	# Only when it is NOT already resolved onto the board. Over a valid drop the
-	# snapped preview above IS the piece, and drawing a second free-floating
-	# copy on top of it just produces a confusing double image.
-	var lift := Layout.drag_lift(cell_size)
-	if dragging and lift > 0.0 and not (valid and _pointer_inside):
+	# Drawn for the whole drag, including over a valid drop. The piece is the
+	# object you are moving and the footprint above is its shadow; hiding the
+	# piece whenever it happened to be over a legal cell is what made the lift
+	# look like it was not being applied at all.
+	if floating:
 		var s := Cfg.shape_size(shape)
 		var half := Vector2(s.x, s.y) * cell_size * 0.5
 		var anchor := piece_centre() - half

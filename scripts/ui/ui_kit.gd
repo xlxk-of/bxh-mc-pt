@@ -124,22 +124,87 @@ static func make_panel(fill := Cfg.PANEL_FILL, accent := Cfg.PANEL_ACCENT) -> Pa
 	return p
 
 
-## Body copy (tiny/small) keeps its size everywhere -- it is already legible and
-## growing it just costs lines. The "important" tiers grow on touch, where the
-## screen is held further away and the reader is scanning, not studying.
+## Godot's stock HSlider is a 4px hairline with a handle a few pixels across --
+## fine with a mouse, unhittable with a thumb, and the single biggest reason the
+## settings screen read as a desktop panel on a phone. This one is sized off the
+## same tap-target metric as buttons.
+static func make_slider(value: float, accent := Cfg.ACCENT_PRIMARY) -> HSlider:
+	var s := HSlider.new()
+	s.min_value = 0.0
+	s.max_value = 1.0
+	s.step = 0.01
+	s.value = value
+	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var track: float = maxf(12.0, Layout.touch_size() * 0.28)
+	var knob: float = maxf(26.0, Layout.touch_size() * 0.62)
+	s.custom_minimum_size.y = maxf(Layout.touch_size(), knob + 8.0)
+	s.add_theme_stylebox_override("slider", bar_style(Color(1, 1, 1, 0.13), track))
+	var filled := bar_style(accent, track)
+	s.add_theme_stylebox_override("grabber_area", filled)
+	s.add_theme_stylebox_override("grabber_area_highlight", bar_style(accent.lightened(0.2), track))
+	var tex := circle_texture(int(knob), Cfg.WHITE, accent)
+	s.add_theme_icon_override("grabber", tex)
+	s.add_theme_icon_override("grabber_highlight", circle_texture(int(knob), accent.lightened(0.45), Cfg.WHITE))
+	s.add_theme_icon_override("grabber_disabled", circle_texture(int(knob), Cfg.GRAY, Cfg.GRAY))
+	return s
+
+
+## A rounded bar of a given thickness. Sliders derive their track height from the
+## stylebox's own minimum size, which is what the content margins set here.
+static func bar_style(color: Color, thickness: float) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = color
+	sb.set_corner_radius_all(int(thickness * 0.5))
+	sb.content_margin_top = thickness * 0.5
+	sb.content_margin_bottom = thickness * 0.5
+	sb.content_margin_left = 0.0
+	sb.content_margin_right = 0.0
+	return sb
+
+
+static var _circles := {}
+
+
+## Slider knobs are theme *icons*, so they need a texture rather than a stylebox.
+## Generated once per size/colour and cached; a phone only ever needs two.
+static func circle_texture(diameter: int, fill: Color, ring: Color) -> Texture2D:
+	diameter = maxi(10, diameter)
+	var key := "%d|%s|%s" % [diameter, fill.to_html(), ring.to_html()]
+	if _circles.has(key):
+		return _circles[key]
+	var img := Image.create(diameter, diameter, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var radius := diameter * 0.5
+	var edge: float = maxf(2.0, diameter * 0.18)
+	for y in diameter:
+		for x in diameter:
+			var d := Vector2(x + 0.5 - radius, y + 0.5 - radius).length()
+			if d > radius:
+				continue
+			var col: Color = fill if d < radius - edge else ring
+			# Feather the outermost pixel so the knob is a disc, not a cog.
+			col.a *= clampf(radius - d, 0.0, 1.0)
+			img.set_pixel(x, y, col)
+	var tex := ImageTexture.create_from_image(img)
+	_circles[key] = tex
+	return tex
+
+
+## Every tier scales by the same factor on touch, body copy included: the phone
+## is handed more logical pixels than it has points, so an unscaled 13px caption
+## renders at about 8pt. Scaling the whole ramp keeps the type hierarchy intact
+## instead of squashing it from the bottom.
 static func font_size(kind: String) -> int:
 	var base := 19
 	match kind:
-		"tiny": return 13
-		"small": return 16
+		"tiny": base = 13
+		"small": base = 16
 		"body": base = 19
 		"medium": base = 24
 		"large": base = 34
 		"huge": base = 52
 		"title": base = 46
-	if Layout.touch_primary:
-		base = int(round(base * 1.18))
-	return base
+	return int(round(base * Layout.text_scale()))
 
 
 static func make_label(text: String, kind := "body", color := Cfg.WHITE,
