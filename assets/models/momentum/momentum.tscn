@@ -1,0 +1,121 @@
+[gd_scene load_steps=15 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_chrome"]
+albedo_color = Color(0.9, 0.93, 0.98, 1)
+metallic = 0.35
+metallic_specular = 0.95
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.24, 0.26, 0.32, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ramp"]
+albedo_color = Color(0.28, 0.27, 0.36, 1)
+metallic = 0.35
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_base"]
+albedo_color = Color(0.17, 0.16, 0.22, 1)
+metallic = 0.3
+roughness = 0.65
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_track"]
+albedo_color = Color(1, 0.35, 0.85, 1)
+metallic = 0.2
+roughness = 0.15
+emission_enabled = true
+emission = Color(1, 0.2, 0.75, 1)
+emission_energy_multiplier = 1.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_streak_near"]
+transparency = 1
+albedo_color = Color(1, 0.5, 0.92, 0.85)
+metallic = 0.0
+roughness = 0.2
+emission_enabled = true
+emission = Color(1, 0.28, 0.85, 1)
+emission_energy_multiplier = 1.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_streak_mid"]
+transparency = 1
+albedo_color = Color(1, 0.5, 0.92, 0.6)
+metallic = 0.0
+roughness = 0.2
+emission_enabled = true
+emission = Color(1, 0.28, 0.85, 1)
+emission_energy_multiplier = 0.95
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_streak_far"]
+transparency = 1
+albedo_color = Color(1, 0.5, 0.92, 0.38)
+metallic = 0.0
+roughness = 0.2
+emission_enabled = true
+emission = Color(1, 0.28, 0.85, 1)
+emission_energy_multiplier = 0.7
+
+[sub_resource type="PrismMesh" id="PrismMesh_ramp"]
+material = SubResource("StandardMaterial3D_ramp")
+left_to_right = 0.0
+size = Vector3(0.82, 0.32, 0.4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_base"]
+material = SubResource("StandardMaterial3D_base")
+size = Vector3(0.86, 0.06, 0.44)
+
+[sub_resource type="BoxMesh" id="BoxMesh_track"]
+material = SubResource("StandardMaterial3D_track")
+size = Vector3(0.86, 0.022, 0.1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_ball"]
+material = SubResource("StandardMaterial3D_chrome")
+radius = 0.17
+height = 0.34
+radial_segments = 28
+rings = 14
+
+[sub_resource type="BoxMesh" id="BoxMesh_streak_near"]
+material = SubResource("StandardMaterial3D_streak_near")
+size = Vector3(0.26, 0.075, 0.075)
+
+[sub_resource type="BoxMesh" id="BoxMesh_streak_mid"]
+material = SubResource("StandardMaterial3D_streak_mid")
+size = Vector3(0.19, 0.055, 0.055)
+
+[sub_resource type="BoxMesh" id="BoxMesh_streak_far"]
+material = SubResource("StandardMaterial3D_streak_far")
+size = Vector3(0.13, 0.038, 0.038)
+
+[node name="Momentum" type="Node3D"]
+
+[node name="Base" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.29, 0)
+mesh = SubResource("BoxMesh_base")
+
+[node name="Ramp" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.1, 0)
+mesh = SubResource("PrismMesh_ramp")
+
+[node name="Track" type="MeshInstance3D" parent="."]
+position = Vector3(0.005, -0.088, 0)
+rotation_degrees = Vector3(0, 0, -21.3)
+mesh = SubResource("BoxMesh_track")
+
+[node name="Ball" type="MeshInstance3D" parent="."]
+position = Vector3(0.302, -0.036, 0)
+mesh = SubResource("SphereMesh_ball")
+
+[node name="StreakNear" type="MeshInstance3D" parent="."]
+position = Vector3(0.041, 0.066, 0)
+rotation_degrees = Vector3(0, 0, -21.3)
+mesh = SubResource("BoxMesh_streak_near")
+
+[node name="StreakMid" type="MeshInstance3D" parent="."]
+position = Vector3(-0.182, 0.153, 0)
+rotation_degrees = Vector3(0, 0, -21.3)
+mesh = SubResource("BoxMesh_streak_mid")
+
+[node name="StreakFar" type="MeshInstance3D" parent="."]
+position = Vector3(-0.368, 0.226, 0)
+rotation_degrees = Vector3(0, 0, -21.3)
+mesh = SubResource("BoxMesh_streak_far")

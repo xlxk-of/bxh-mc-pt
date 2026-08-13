@@ -10,34 +10,77 @@ It also opens in stock Godot 4.7 — the Steam layer degrades to a no-op.
 
 ```
 scripts/
-  autoload/     cfg, cards, save_game, audio_director, layout, juice, steam_manager
+  autoload/     cfg, cards, save_game, profile, audio_director, layout, juice,
+                steam_manager, sin_tree_data
   core/         game_session.gd     -- the whole rules engine, no visuals
   game/         board_view.gd       -- playfield rendering + pointer input
-  ui/           ui_kit, hud, screens, dialogs, card_icon, piece_preview
+  ui/           ui_kit, hud, screens, dialogs, card_icon, piece_preview,
+                skill_tree_screen, touch_drag_scroll
   fx/           level_background, menu_shape_field, shockwave, crt.gdshader
 scenes/main.tscn      entry point (a router; every screen is built in code)
 assets/
   audio/{music,sfx}   3 tracks, 20 cues
   cards/frames/       26 x 15-frame turntable strips (fallback icons)
-  models/             27 .glb card/item models
+  models/             54 card/item models (27 sculpted .glb, 27 primitive .tscn)
   fonts/              Warpixes (display), Sixtyfour Convergence (numerals)
-test/                 loop_test, screenshot, diag harnesses
+web/head_include.html themed loader for the web/PWA build
+test/                 loop, meta, model_frames, scroll_touch, mobile_shots,
+                      screenshot, diag harnesses
 ```
 
 `GameSession` owns no nodes that draw. It mutates state and emits signals;
 scenes render from those signals. That is what lets `test/loop_test.tscn` play
 thousands of turns headlessly.
 
+## Content and progression
+
+40 cards, 14 items, 12 perks, 5 contracts. Every entry declares an `asset` key
+that resolves to `assets/models/<key>/<key>.{glb,tscn}`; `Cards.model_scene()`
+tries both, so a hand-sculpted model and one composed from primitive meshes are
+indistinguishable to the UI.
+
+`Profile` is the only state that outlives a run. Dying pays out **Soul Embers**
+(scaled to rounds survived and score), spent in the **Sin Tree**: seven sins of
+five tiers each, 35 nodes, reached from the main menu. A node is only readable
+once its prerequisite is owned, so the tree reveals itself as it is bought.
+`SinTreeData` holds the graph; each node names one `effect_key`, and
+`Profile.bonus(key)` returns the summed value of everything owned that carries
+it - so two nodes in a branch stack rather than overwrite. `game_session.gd`
+reads those bonuses at the natural site for each (starting money and slots in
+`reset_run()`, score and combo at their calculation sites). The sums are cached
+and invalidated on purchase, because `bonus()` is called per placement.
+
 ## Running the tests
 
 ```bash
-godot --headless --path . res://test/loop_test.tscn     # 342 assertions
+godot --headless --path . res://test/loop_test.tscn     # 645 assertions, rules
+godot --headless --path . res://test/meta_test.tscn     # 325 assertions, Sin Tree
+godot --path . res://test/model_frames.tscn             # every model, 8 angles
+godot --path . res://test/scroll_touch.tscn             # drag vs tap
+godot --path . res://test/mobile_shots.tscn             # phone layouts + metrics
 godot --path . res://test/screenshot.tscn               # writes user://shots/
 godot --path . res://test/diag.tscn                     # layout + font probe
 ```
 
 `loop_test` covers every card, item, perk and contract, both revive paths, the
-Giga Boss cycle, a JSON save round-trip, column collapse, and a six-run soak.
+Giga Boss cycle, a JSON save round-trip, column collapse, and a six-run soak. It
+also asserts that every table entry is named somewhere in `game_session.gd` -
+content that buys, equips and renders while doing nothing is the failure mode
+that no behavioural test notices.
+
+`meta_test` asserts the Sin Tree is an acyclic graph whose prerequisites all
+exist, that embers cannot be spent twice or into debt, that a locked node stays
+hidden until it is reachable, and that the lot survives a save round trip.
+
+`model_frames` renders every card and item model at icon size through eight
+turntable angles and fails on any pixel touching the border. That is what "the
+model is cut off" looks like in pixels, and it caught 6 of 27 before the camera
+fit was rewritten.
+
+`mobile_shots` fakes an iPhone 16 Pro's CSS geometry and asserts the physical
+metrics (tap targets in points, body type, drag lift), that no screen overflows
+its viewport width, that a drag starting on a Buy button scrolls without buying,
+and that a tap on that same button still buys.
 
 ## Controls
 

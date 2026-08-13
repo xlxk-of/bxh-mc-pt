@@ -1,0 +1,167 @@
+[gd_scene load_steps=19 format=3]
+
+[sub_resource type="StandardMaterial3D" id="mat_steel"]
+albedo_color = Color(0.34, 0.38, 0.46, 1)
+metallic = 0.62
+roughness = 0.3
+emission_enabled = true
+emission = Color(0.1, 0.18, 0.32, 1)
+emission_energy_multiplier = 0.6
+
+[sub_resource type="StandardMaterial3D" id="mat_edge"]
+albedo_color = Color(0.5, 0.57, 0.68, 1)
+metallic = 0.5
+roughness = 0.1
+rim_enabled = true
+rim = 0.8
+emission_enabled = true
+emission = Color(0.3, 0.55, 0.9, 1)
+emission_energy_multiplier = 1.1
+
+[sub_resource type="StandardMaterial3D" id="mat_wood"]
+albedo_color = Color(0.3, 0.16, 0.08, 1)
+metallic = 0.0
+roughness = 0.76
+emission_enabled = true
+emission = Color(0.14, 0.06, 0.02, 1)
+emission_energy_multiplier = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_brass"]
+albedo_color = Color(0.44, 0.3, 0.11, 1)
+metallic = 0.6
+roughness = 0.3
+emission_enabled = true
+emission = Color(0.4, 0.24, 0.05, 1)
+emission_energy_multiplier = 1
+
+[sub_resource type="StandardMaterial3D" id="mat_struck"]
+albedo_color = Color(0.3, 0.31, 0.35, 1)
+metallic = 0.55
+roughness = 0.62
+emission_enabled = true
+emission = Color(0.1, 0.12, 0.18, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="StandardMaterial3D" id="mat_stone"]
+albedo_color = Color(0.15, 0.155, 0.19, 1)
+metallic = 0.0
+roughness = 0.98
+emission_enabled = true
+emission = Color(0.03, 0.035, 0.06, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="StandardMaterial3D" id="mat_chip"]
+albedo_color = Color(0.19, 0.2, 0.24, 1)
+metallic = 0.0
+roughness = 0.9
+emission_enabled = true
+emission = Color(0.04, 0.045, 0.07, 1)
+emission_energy_multiplier = 0.3
+
+[sub_resource type="BoxMesh" id="mesh_blade"]
+material = SubResource("mat_steel")
+size = Vector3(0.42, 0.07, 0.16)
+
+[sub_resource type="PrismMesh" id="mesh_bevel"]
+material = SubResource("mat_edge")
+size = Vector3(0.07, 0.12, 0.16)
+
+[sub_resource type="CylinderMesh" id="mesh_ferrule"]
+material = SubResource("mat_brass")
+top_radius = 0.09
+bottom_radius = 0.08
+height = 0.07
+radial_segments = 20
+rings = 1
+
+[sub_resource type="CylinderMesh" id="mesh_handle"]
+material = SubResource("mat_wood")
+top_radius = 0.07
+bottom_radius = 0.09
+height = 0.42
+radial_segments = 20
+rings = 1
+
+[sub_resource type="TorusMesh" id="mesh_band_front"]
+material = SubResource("mat_brass")
+inner_radius = 0.072
+outer_radius = 0.095
+rings = 24
+ring_segments = 10
+
+[sub_resource type="TorusMesh" id="mesh_band_rear"]
+material = SubResource("mat_brass")
+inner_radius = 0.084
+outer_radius = 0.108
+rings = 24
+ring_segments = 10
+
+[sub_resource type="CylinderMesh" id="mesh_cap"]
+material = SubResource("mat_struck")
+top_radius = 0.093
+bottom_radius = 0.117
+height = 0.055
+radial_segments = 20
+rings = 1
+
+[sub_resource type="BoxMesh" id="mesh_stone_left"]
+material = SubResource("mat_stone")
+size = Vector3(0.3, 0.26, 0.29)
+
+[sub_resource type="BoxMesh" id="mesh_stone_right"]
+material = SubResource("mat_stone")
+size = Vector3(0.26, 0.23, 0.26)
+
+[sub_resource type="BoxMesh" id="mesh_chip_left"]
+material = SubResource("mat_chip")
+size = Vector3(0.1, 0.08, 0.09)
+
+[sub_resource type="PrismMesh" id="mesh_chip_right"]
+material = SubResource("mat_chip")
+size = Vector3(0.11, 0.09, 0.085)
+
+[node name="MasonsChisel" type="Node3D"]
+
+[node name="Blade" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.9067, -0.1219, -0.4037, 0.1113, 0.9925, -0.0496, 0.4067, 0, 0.9135, 0.1451, -0.1195, -0.0346)
+mesh = SubResource("mesh_blade")
+
+[node name="BladeBevel" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.1113, -0.9925, 0.0496, 0.9067, -0.1219, -0.4037, 0.4067, 0, 0.9135, 0.3899, -0.1524, -0.1436)
+mesh = SubResource("mesh_bevel")
+
+[node name="Ferrule" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.1113, -0.9925, 0.0496, 0.9067, -0.1219, -0.4037, 0.4067, 0, 0.9135, -0.068, -0.0909, 0.0603)
+mesh = SubResource("mesh_ferrule")
+
+[node name="Handle" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.1113, -0.9925, 0.0496, 0.9067, -0.1219, -0.4037, 0.4067, 0, 0.9135, -0.2902, -0.061, 0.1592)
+mesh = SubResource("mesh_handle")
+
+[node name="HandleBandFront" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.1113, -0.9925, 0.0496, 0.9067, -0.1219, -0.4037, 0.4067, 0, 0.9135, -0.1632, -0.0781, 0.1027)
+mesh = SubResource("mesh_band_front")
+
+[node name="HandleBandRear" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.1113, -0.9925, 0.0496, 0.9067, -0.1219, -0.4037, 0.4067, 0, 0.9135, -0.4171, -0.0439, 0.2157)
+mesh = SubResource("mesh_band_rear")
+
+[node name="StruckCap" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.1113, -0.9925, 0.0496, 0.9067, -0.1219, -0.4037, 0.4067, 0, 0.9135, -0.506, -0.032, 0.2553)
+mesh = SubResource("mesh_cap")
+
+[node name="StoneBlockLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.9511, 0, -0.309, -0.0269, 0.9962, -0.0829, 0.3078, 0.0872, 0.9474, -0.235, -0.325, 0.03)
+mesh = SubResource("mesh_stone_left")
+
+[node name="StoneBlockRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.8861, 0.1045, 0.4515, -0.0931, 0.9945, -0.0475, -0.454, 0, 0.891, 0.235, -0.34, -0.05)
+mesh = SubResource("mesh_stone_right")
+
+[node name="StoneChipLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.6764, 0.4695, -0.5675, -0.3596, 0.8829, 0.3018, 0.6428, 0, 0.766, -0.34, -0.215, 0.115)
+mesh = SubResource("mesh_chip_left")
+
+[node name="StoneChipRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.788, 0, 0.6157, -0.3443, 0.829, 0.4407, -0.5104, -0.5592, 0.6533, 0.33, -0.255, 0.085)
+mesh = SubResource("mesh_chip_right")

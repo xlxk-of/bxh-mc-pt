@@ -1,0 +1,122 @@
+[gd_scene load_steps=14 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Mat_Horn"]
+cull_mode = 2
+albedo_color = Color(0.3, 0.42, 0.36, 1)
+metallic = 0.7
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="Mat_Lip"]
+albedo_color = Color(0.5, 0.9, 0.66, 1)
+metallic = 0.2
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.25, 0.85, 0.5, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="StandardMaterial3D" id="Mat_Gust"]
+albedo_color = Color(0.66, 0.92, 0.75, 1)
+metallic = 0.1
+roughness = 0.25
+emission_enabled = true
+emission = Color(0.16, 0.5, 0.3, 1)
+emission_energy_multiplier = 0.85
+
+[sub_resource type="StandardMaterial3D" id="Mat_Wisp"]
+albedo_color = Color(0.84, 1, 0.9, 1)
+metallic = 0.05
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.3, 0.7, 0.46, 1)
+emission_energy_multiplier = 1.2
+
+[sub_resource type="TorusMesh" id="Mesh_ArcInner"]
+material = SubResource("Mat_Gust")
+inner_radius = 0.125
+outer_radius = 0.195
+rings = 24
+ring_segments = 10
+
+[sub_resource type="TorusMesh" id="Mesh_ArcMid"]
+material = SubResource("Mat_Gust")
+inner_radius = 0.234
+outer_radius = 0.286
+rings = 24
+ring_segments = 10
+
+[sub_resource type="TorusMesh" id="Mesh_ArcOuter"]
+material = SubResource("Mat_Wisp")
+inner_radius = 0.312
+outer_radius = 0.348
+rings = 24
+ring_segments = 10
+
+[sub_resource type="BoxMesh" id="Mesh_StreakA"]
+material = SubResource("Mat_Gust")
+size = Vector3(0.27267, 0.034, 0.028)
+
+[sub_resource type="BoxMesh" id="Mesh_StreakB"]
+material = SubResource("Mat_Gust")
+size = Vector3(0.33609, 0.026, 0.021)
+
+[sub_resource type="BoxMesh" id="Mesh_StreakC"]
+material = SubResource("Mat_Wisp")
+size = Vector3(0.38618, 0.021, 0.017)
+
+[sub_resource type="BoxMesh" id="Mesh_StreakD"]
+material = SubResource("Mat_Wisp")
+size = Vector3(0.21021, 0.017, 0.014)
+
+[sub_resource type="CylinderMesh" id="Mesh_Mouth"]
+material = SubResource("Mat_Horn")
+top_radius = 0.14
+bottom_radius = 0.085
+height = 0.24
+radial_segments = 14
+rings = 1
+cap_top = false
+
+[sub_resource type="TorusMesh" id="Mesh_MouthLip"]
+material = SubResource("Mat_Lip")
+inner_radius = 0.13
+outer_radius = 0.165
+rings = 24
+ring_segments = 10
+
+[node name="SecondWind" type="Node3D"]
+
+[node name="ArcInner" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.98769, -0.15243, -0.03519, 0.15643, 0.96237, 0.22218, 0, -0.22495, 0.97437, -0.03129, -0.19247, -0.04444)
+mesh = SubResource("Mesh_ArcInner")
+
+[node name="ArcMid" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.97815, 0.20475, -0.0361, -0.20791, 0.96329, -0.16985, 0, 0.17365, 0.98481, -0.00416, 0.01927, -0.0034)
+mesh = SubResource("Mesh_ArcMid")
+
+[node name="ArcOuter" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99255, -0.11772, -0.03154, 0.12187, 0.95873, 0.25689, 0, -0.25882, 0.96593, 0.02803, 0.22051, 0.05908)
+mesh = SubResource("Mesh_ArcOuter")
+
+[node name="StreakA" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.83618, 0.46071, -0.29757, 0.43405, 0.88755, 0.15446, 0.33527, 0, -0.94212, -0.16581, -0.16578, 0.1147)
+mesh = SubResource("Mesh_StreakA")
+
+[node name="StreakB" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.60682, 0.2395, -0.7579, -0.14969, 0.9709, 0.18695, 0.78061, 0, 0.62501, -0.16085, -0.01177, -0.25254)
+mesh = SubResource("Mesh_StreakB")
+
+[node name="StreakC" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.51709, 0.04851, 0.85455, 0.02511, 0.99882, -0.0415, -0.85556, 0, -0.5177, 0.27565, 0.17521, 0.28582)
+mesh = SubResource("Mesh_StreakC")
+
+[node name="StreakD" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.83514, 0.02447, 0.54949, -0.02044, 0.9997, -0.01345, -0.54966, 0, 0.83539, 0.22281, 0.35339, -0.04264)
+mesh = SubResource("Mesh_StreakD")
+
+[node name="Mouth" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.98769, 0.15558, -0.01635, -0.15643, 0.98228, -0.10324, 0, 0.10453, 0.99452, 0.0657, -0.41256, 0.04336)
+mesh = SubResource("Mesh_Mouth")
+
+[node name="MouthLip" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.98769, 0.15558, -0.01635, -0.15643, 0.98228, -0.10324, 0, 0.10453, 0.99452, 0.04849, -0.30451, 0.032)
+mesh = SubResource("Mesh_MouthLip")

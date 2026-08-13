@@ -1,0 +1,127 @@
+[gd_scene load_steps=14 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_charred"]
+albedo_color = Color(0.055, 0.05, 0.058, 1)
+metallic = 0.08
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ember"]
+albedo_color = Color(0.95, 0.28, 0.04, 1)
+metallic = 0
+roughness = 0.45
+emission_enabled = true
+emission = Color(1, 0.36, 0.06, 1)
+emission_energy_multiplier = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_flame"]
+transparency = 1
+albedo_color = Color(1, 0.36, 0.05, 0.78)
+metallic = 0
+roughness = 0.35
+emission_enabled = true
+emission = Color(1, 0.28, 0.03, 1)
+emission_energy_multiplier = 1.9
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_flame_core"]
+transparency = 1
+albedo_color = Color(1, 0.62, 0.14, 0.85)
+metallic = 0
+roughness = 0.3
+emission_enabled = true
+emission = Color(1, 0.48, 0.08, 1)
+emission_energy_multiplier = 2
+
+[sub_resource type="SphereMesh" id="SphereMesh_core"]
+material = SubResource("StandardMaterial3D_charred")
+radius = 0.34
+height = 0.68
+radial_segments = 16
+rings = 9
+
+[sub_resource type="SphereMesh" id="SphereMesh_lump_a"]
+material = SubResource("StandardMaterial3D_charred")
+radius = 0.17
+height = 0.34
+radial_segments = 10
+rings = 6
+
+[sub_resource type="SphereMesh" id="SphereMesh_lump_b"]
+material = SubResource("StandardMaterial3D_charred")
+radius = 0.2
+height = 0.4
+radial_segments = 10
+rings = 6
+
+[sub_resource type="SphereMesh" id="SphereMesh_lump_c"]
+material = SubResource("StandardMaterial3D_charred")
+radius = 0.13
+height = 0.26
+radial_segments = 9
+rings = 5
+
+[sub_resource type="SphereMesh" id="SphereMesh_crater_a"]
+material = SubResource("StandardMaterial3D_ember")
+radius = 0.1
+height = 0.2
+radial_segments = 10
+rings = 6
+
+[sub_resource type="SphereMesh" id="SphereMesh_crater_b"]
+material = SubResource("StandardMaterial3D_ember")
+radius = 0.075
+height = 0.15
+radial_segments = 10
+rings = 6
+
+[sub_resource type="SphereMesh" id="SphereMesh_crater_c"]
+material = SubResource("StandardMaterial3D_ember")
+radius = 0.055
+height = 0.11
+radial_segments = 10
+rings = 6
+
+[sub_resource type="PrismMesh" id="PrismMesh_flame_long"]
+material = SubResource("StandardMaterial3D_flame")
+size = Vector3(0.24, 0.48, 0.16)
+
+[sub_resource type="PrismMesh" id="PrismMesh_flame_short"]
+material = SubResource("StandardMaterial3D_flame_core")
+size = Vector3(0.15, 0.36, 0.11)
+
+[node name="MeteorShard" type="Node3D"]
+
+[node name="Core" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.953647, -0.149117, 0.406737, 0.184067, 0.925719, 0, -0.424591, 0.066391, 0.913545, 0.1, 0.02, 0)
+mesh = SubResource("SphereMesh_core")
+
+[node name="LumpCrown" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.848048, -0.434534, 0, 0.529919, 0.695399, 0, 0, 0, 1, 0.22, 0.22, 0.07)
+mesh = SubResource("SphereMesh_lump_a")
+
+[node name="LumpBack" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.984808, 0.156283, 0, -0.165149, 0.842947, -0.324468, -0.05366, 0.27389, 0.998609, 0.02, -0.15, -0.15)
+mesh = SubResource("SphereMesh_lump_b")
+
+[node name="LumpFlank" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.28, -0.13, 0.19)
+mesh = SubResource("SphereMesh_lump_c")
+
+[node name="CraterFace" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.230376, 0.190731, 0.223502)
+mesh = SubResource("SphereMesh_crater_a")
+
+[node name="CraterEdge" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.37246, -0.029538, 0.139326)
+mesh = SubResource("SphereMesh_crater_b")
+
+[node name="CraterLow" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.16241, -0.173471, 0.234038)
+mesh = SubResource("SphereMesh_crater_c")
+
+[node name="FlameLong" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.175757, -0.960828, -0.214287, -0.935882, 0.230599, -0.266363, 0.305344, 0.153732, -0.939751, -0.284331, 0.112239, 0.061493)
+mesh = SubResource("PrismMesh_flame_long")
+
+[node name="FlameWisp" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.434328, -0.900676, 0.011934, -0.722144, -0.340255, 0.602274, -0.538393, -0.270203, -0.7982, -0.242257, -0.109297, -0.102677)
+mesh = SubResource("PrismMesh_flame_short")

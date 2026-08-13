@@ -209,6 +209,7 @@ func _show_main_menu() -> void:
 	_menu.start_run.connect(_start_new_run)
 	_menu.continue_run.connect(_continue_run)
 	_menu.open_settings.connect(_open_settings.bind(true))
+	_menu.open_sin_tree.connect(_open_sin_tree)
 	_menu.quit_game.connect(_quit)
 	_ui_layer.add_child(_menu)
 	Audio.play_music(Cfg.MUSIC_MENU)
@@ -287,6 +288,7 @@ func _on_game_over() -> void:
 	over.best_score = SaveGame.high_score
 	over.is_new_best = session.score >= SaveGame.high_score and session.score > 0
 	over.rounds_survived = session.round_count
+	over.embers_earned = session.last_run_embers
 	over.restart_run.connect(func():
 		_active_screen = null
 		_start_new_run())
@@ -296,6 +298,20 @@ func _on_game_over() -> void:
 	_set_screen(over)
 	SteamManager.set_stat("last_score", session.score)
 	SteamManager.flush()
+
+
+## Soul Embers are spent between runs, so the tree opens over the menu and the
+## menu is rebuilt afterwards to pick up the new balance on its button.
+func _open_sin_tree() -> void:
+	if _modal != null and is_instance_valid(_modal):
+		return
+	var tree := SkillTreeScreen.new()
+	tree.closed.connect(func():
+		_modal = null
+		if _menu != null and is_instance_valid(_menu):
+			_menu._rebuild())
+	_modal = tree
+	_ui_layer.add_child(tree)
 
 
 func _open_settings(from_menu: bool) -> void:

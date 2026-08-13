@@ -1,0 +1,129 @@
+[gd_scene load_steps=14 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_iron"]
+albedo_color = Color(0.09, 0.09, 0.12, 1)
+metallic = 0.88
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_band"]
+albedo_color = Color(0.26, 0.24, 0.32, 1)
+metallic = 1
+roughness = 0.26
+emission_enabled = true
+emission = Color(0.45, 0.22, 0.8, 1)
+emission_energy_multiplier = 1.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_soul"]
+transparency = 1
+albedo_color = Color(0.66, 0.42, 1, 0.58)
+metallic = 0
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.5, 0.26, 1, 1)
+emission_energy_multiplier = 1.7
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fuse"]
+albedo_color = Color(0.4, 0.32, 0.2, 1)
+metallic = 0
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ember"]
+albedo_color = Color(1, 0.55, 0.15, 1)
+metallic = 0
+roughness = 0.4
+emission_enabled = true
+emission = Color(1, 0.5, 0.1, 1)
+emission_energy_multiplier = 2.4
+
+[sub_resource type="SphereMesh" id="SphereMesh_core"]
+material = SubResource("StandardMaterial3D_iron")
+radius = 0.34
+height = 0.68
+radial_segments = 22
+rings = 12
+
+[sub_resource type="TorusMesh" id="TorusMesh_band"]
+material = SubResource("StandardMaterial3D_band")
+inner_radius = 0.335
+outer_radius = 0.4
+rings = 26
+ring_segments = 8
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_collar"]
+material = SubResource("StandardMaterial3D_band")
+top_radius = 0.1
+bottom_radius = 0.115
+height = 0.09
+radial_segments = 14
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_fuse"]
+material = SubResource("StandardMaterial3D_fuse")
+top_radius = 0.028
+bottom_radius = 0.045
+height = 0.26
+radial_segments = 10
+rings = 1
+
+[sub_resource type="SphereMesh" id="SphereMesh_ember"]
+material = SubResource("StandardMaterial3D_ember")
+radius = 0.055
+height = 0.11
+radial_segments = 10
+rings = 6
+
+[sub_resource type="BoxMesh" id="BoxMesh_seam"]
+material = SubResource("StandardMaterial3D_soul")
+size = Vector3(0.018, 0.22, 0.05)
+
+[sub_resource type="SphereMesh" id="SphereMesh_wisp_a"]
+material = SubResource("StandardMaterial3D_soul")
+radius = 0.12
+height = 0.24
+radial_segments = 12
+rings = 8
+
+[sub_resource type="SphereMesh" id="SphereMesh_wisp_b"]
+material = SubResource("StandardMaterial3D_soul")
+radius = 0.075
+height = 0.15
+radial_segments = 10
+rings = 6
+
+[node name="SoulBomb" type="Node3D"]
+
+[node name="Core" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("SphereMesh_core")
+
+[node name="BandFront" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)
+mesh = SubResource("TorusMesh_band")
+
+[node name="BandSide" type="MeshInstance3D" parent="."]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("TorusMesh_band")
+
+[node name="Collar" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.365, 0)
+mesh = SubResource("CylinderMesh_collar")
+
+[node name="Fuse" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.924259, 0.374607, 0.073594, 0.381767, 0.906923, 0.178171, 0, 0.192772, -0.981244, 0.048699, 0.5179, 0.02506)
+mesh = SubResource("CylinderMesh_fuse")
+
+[node name="FuseEmber" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.108636, 0.663008, 0.055904)
+mesh = SubResource("SphereMesh_ember")
+
+[node name="Seam" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.1343, 0.918656, 0.371531, 0.858839, -0.294937, 0.418817, 0.494327, 0.262838, -0.828587, 0.184204, 0.207648, 0.187553)
+mesh = SubResource("BoxMesh_seam")
+
+[node name="WispNear" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.635863, 1.044739, 0.260072, 0.564072, 1.177706, 0.293172, 0, 1.063734, -0.580011, 0.274931, 0.309923, 0.27993)
+mesh = SubResource("SphereMesh_wisp_a")
+
+[node name="WispFar" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.725377, 0.841812, 0.091713, 0.337385, 1.809895, 0.197183, 0, 0.652404, -0.665363, 0.412397, 0.464884, 0.419895)
+mesh = SubResource("SphereMesh_wisp_b")

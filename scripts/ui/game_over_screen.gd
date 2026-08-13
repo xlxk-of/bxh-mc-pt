@@ -9,6 +9,7 @@ var final_score := 0
 var best_score := 0
 var is_new_best := false
 var rounds_survived := 1
+var embers_earned := 0
 
 
 func _init() -> void:
@@ -35,6 +36,13 @@ func _build() -> void:
 	v.add_child(_stat("HIGH SCORE", str(best_score), "medium", Cfg.ACCENT_PRIMARY))
 	v.add_child(UIKit.spacer(8))
 	v.add_child(_stat("ROUNDS SURVIVED", str(rounds_survived), "medium", Cfg.TEXT_DIM))
+	if embers_earned > 0:
+		# The one thing on this screen the player keeps, so it says so.
+		v.add_child(UIKit.spacer(8))
+		v.add_child(_stat("SOUL EMBERS EARNED", "+%d" % embers_earned, "medium", Cfg.ORANGE))
+		var kept := UIKit.make_label("Spend them in the Sin Tree.", "tiny", Cfg.TEXT_DIM)
+		kept.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(kept)
 
 	content.add_child(UIKit.spacer(10))
 	var again := UIKit.make_button("Restart (R)", Cfg.ACCENT_GOOD, "small")

@@ -92,6 +92,7 @@ func _shot_mode(size: Vector2i, tag: String) -> void:
 	main._open_settings(false)
 	await _settle(0.9)
 	await _shot(tag + "_settings")
+	_check_fits(tag + " settings", main._modal)
 	var scroll := _find_scroll(main._modal)
 	if scroll:
 		scroll.scroll_vertical = 100000
@@ -99,6 +100,25 @@ func _shot_mode(size: Vector2i, tag: String) -> void:
 		await _shot(tag + "_settings_bottom")
 		print("  [%s] settings scroll %d of %d px" % [
 			tag, scroll.scroll_vertical, scroll.get_v_scroll_bar().max_value])
+	if main._modal:
+		main._modal.close()
+	await _settle(0.4)
+
+	# The Sin Tree is the widest thing in the game (seven branches) squeezed onto
+	# the narrowest screen, so it is worth a look in both orientations.
+	Profile.reset_tree()
+	Profile.embers = 0
+	Profile.award_embers(400)
+	Profile.buy(SinTreeData.NODES[0]["id"])
+	main._open_sin_tree()
+	await _settle(0.9)
+	await _shot(tag + "_sin_tree")
+	_check_fits(tag + " sin tree", main._modal)
+	var tree_scroll := _find_scroll(main._modal)
+	if tree_scroll:
+		tree_scroll.scroll_vertical = 100000
+		await _settle(0.4)
+		await _shot(tag + "_sin_tree_bottom")
 	if main._modal:
 		main._modal.close()
 	await _settle(0.4)
@@ -158,6 +178,40 @@ func _verify_drag_gain() -> void:
 		print("  placement mode %d: finger %s -> piece %s (expected %.1fx) %s" % [
 			mode, delta, moved, want, "OK" if ok else "FAIL"])
 	SaveGame.placement_mode = BoardView.PLACEMENT_DEFAULT
+
+
+## Nothing may reach past the side of the screen. Godot lays a container out past
+## the edge rather than shrink a Button below its own label, so a screen that
+## looks fine on a desktop can quietly run a third of itself off a phone - and
+## unlike a clipped 3D model, there is no visual tell until you go looking.
+func _check_fits(what: String, root: Node) -> void:
+	if root == null:
+		print("  %s width: SKIPPED (nothing open)" % what)
+		return
+	var limit: float = Layout.logical_size().x
+	var worst := _overflow(root, limit, "")
+	var over: float = worst[0]
+	print("  %s fits %.0fpx wide: %s%s" % [
+		what, limit, "OK" if over <= 1.0 else "FAIL",
+		"" if over <= 1.0 else "  (%s overflows by %.0fpx)" % [worst[1], over]])
+
+
+func _overflow(node: Node, limit: float, path: String) -> Array:
+	var worst := 0.0
+	var culprit := ""
+	if node is Control:
+		var c := node as Control
+		if c.is_visible_in_tree():
+			var over: float = c.get_global_rect().end.x - limit
+			if over > worst:
+				worst = over
+				culprit = path
+	for child in node.get_children():
+		var sub := _overflow(child, limit, path + "/" + child.name)
+		if sub[0] > worst:
+			worst = sub[0]
+			culprit = sub[1]
+	return [worst, culprit]
 
 
 func _find_scroll(node: Node) -> ScrollContainer:

@@ -1,0 +1,110 @@
+[gd_scene load_steps=12 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glass"]
+albedo_color = Color(0.4, 0.34, 0.6, 1)
+metallic = 0.65
+roughness = 0.1
+emission_enabled = true
+emission = Color(0.26, 0.14, 0.52, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_silver"]
+albedo_color = Color(0.86, 0.86, 0.92, 1)
+metallic = 0.55
+roughness = 0.16
+emission_enabled = true
+emission = Color(0.2, 0.13, 0.4, 1)
+emission_energy_multiplier = 0.25
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ghost"]
+transparency = 1
+albedo_color = Color(0.62, 0.5, 0.92, 0.16)
+metallic = 0.2
+roughness = 0.4
+emission_enabled = true
+emission = Color(0.4, 0.24, 0.75, 1)
+emission_energy_multiplier = 0.6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_stand"]
+albedo_color = Color(0.34, 0.32, 0.42, 1)
+metallic = 0.4
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_knob"]
+albedo_color = Color(0.62, 0.45, 0.9, 1)
+metallic = 0.4
+roughness = 0.25
+emission_enabled = true
+emission = Color(0.6, 0.3, 1, 1)
+emission_energy_multiplier = 1.4
+
+[sub_resource type="SphereMesh" id="SphereMesh_glass"]
+material = SubResource("StandardMaterial3D_glass")
+radius = 0.29
+height = 0.74
+radial_segments = 28
+rings = 14
+
+[sub_resource type="TorusMesh" id="TorusMesh_frame"]
+material = SubResource("StandardMaterial3D_silver")
+inner_radius = 0.295
+outer_radius = 0.35
+rings = 34
+ring_segments = 12
+
+[sub_resource type="TorusMesh" id="TorusMesh_ghost"]
+material = SubResource("StandardMaterial3D_ghost")
+inner_radius = 0.295
+outer_radius = 0.35
+rings = 28
+ring_segments = 10
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_knob"]
+material = SubResource("StandardMaterial3D_knob")
+top_radius = 0.058
+bottom_radius = 0.058
+height = 0.09
+radial_segments = 12
+rings = 1
+
+[sub_resource type="BoxMesh" id="BoxMesh_leg"]
+material = SubResource("StandardMaterial3D_stand")
+size = Vector3(0.06, 1, 0.07)
+
+[sub_resource type="BoxMesh" id="BoxMesh_foot"]
+material = SubResource("StandardMaterial3D_stand")
+size = Vector3(0.86, 0.055, 0.16)
+
+[node name="MirrorSoul" type="Node3D"]
+
+[node name="Glass" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99027, 0, -0.012526, 0, 1, 0, 0.13917, 0, 0.089124, 0, 0.12, 0)
+mesh = SubResource("SphereMesh_glass")
+
+[node name="Frame" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99027, -0.13917, 0, 0, 0, -1.28, 0.13917, 0.99027, 0, 0, 0.12, 0)
+mesh = SubResource("TorusMesh_frame")
+
+[node name="GhostFrame" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.9994, 0.24918, 0, 0, 0, -1.32, -0.24918, 0.9994, 0, 0.07, 0.13, -0.16)
+mesh = SubResource("TorusMesh_ghost")
+
+[node name="KnobLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -0.285, -0.1, 0)
+mesh = SubResource("CylinderMesh_knob")
+
+[node name="KnobRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0.285, -0.1, 0)
+mesh = SubResource("CylinderMesh_knob")
+
+[node name="LegLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.98058, -0.09, -0.0085389, -0.19612, -0.45, -0.042695, 0, 0.02, -0.99905, -0.33, -0.325, 0.01)
+mesh = SubResource("BoxMesh_leg")
+
+[node name="LegRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.98058, 0.09, -0.0085389, 0.19612, -0.45, 0.042695, 0, -0.02, -0.99905, 0.33, -0.325, -0.01)
+mesh = SubResource("BoxMesh_leg")
+
+[node name="Foot" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.565, 0)
+mesh = SubResource("BoxMesh_foot")

@@ -1,0 +1,119 @@
+[gd_scene load_steps=13 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glass"]
+transparency = 1
+cull_mode = 2
+albedo_color = Color(0.6, 0.85, 0.98, 0.3)
+metallic = 0.1
+metallic_specular = 0.9
+roughness = 0.12
+emission_enabled = true
+emission = Color(0.25, 0.5, 0.7, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_rim"]
+albedo_color = Color(0.85, 0.78, 0.5, 1)
+metallic = 0.4
+roughness = 0.3
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jar"]
+albedo_color = Color(0.68, 0.54, 0.26, 1)
+metallic = 0.4
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_soul"]
+transparency = 1
+albedo_color = Color(0.7, 0.92, 1, 0.75)
+metallic = 0.0
+roughness = 0.1
+emission_enabled = true
+emission = Color(0.4, 0.75, 1, 1)
+emission_energy_multiplier = 1.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glow"]
+albedo_color = Color(0.5, 0.82, 1, 1)
+metallic = 0.2
+roughness = 0.15
+emission_enabled = true
+emission = Color(0.3, 0.68, 1, 1)
+emission_energy_multiplier = 1.2
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_funnel"]
+material = SubResource("StandardMaterial3D_glass")
+top_radius = 0.34
+bottom_radius = 0.055
+height = 0.44
+radial_segments = 28
+cap_top = false
+
+[sub_resource type="TorusMesh" id="TorusMesh_funnel_rim"]
+material = SubResource("StandardMaterial3D_rim")
+inner_radius = 0.325
+outer_radius = 0.365
+rings = 32
+ring_segments = 12
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_neck"]
+material = SubResource("StandardMaterial3D_rim")
+top_radius = 0.05
+bottom_radius = 0.05
+height = 0.13
+radial_segments = 16
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_jar"]
+material = SubResource("StandardMaterial3D_jar")
+top_radius = 0.25
+bottom_radius = 0.25
+height = 0.27
+radial_segments = 24
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_jar_rim"]
+material = SubResource("StandardMaterial3D_rim")
+top_radius = 0.275
+bottom_radius = 0.275
+height = 0.05
+radial_segments = 24
+
+[sub_resource type="TorusMesh" id="TorusMesh_fill_band"]
+material = SubResource("StandardMaterial3D_glow")
+inner_radius = 0.245
+outer_radius = 0.278
+rings = 28
+ring_segments = 10
+
+[sub_resource type="SphereMesh" id="SphereMesh_soul"]
+material = SubResource("StandardMaterial3D_soul")
+radius = 0.115
+height = 0.23
+radial_segments = 24
+rings = 12
+
+[node name="SoulSiphon" type="Node3D"]
+
+[node name="Funnel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.15, 0)
+mesh = SubResource("CylinderMesh_funnel")
+
+[node name="FunnelRim" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.37, 0)
+mesh = SubResource("TorusMesh_funnel_rim")
+
+[node name="Soul" type="MeshInstance3D" parent="."]
+position = Vector3(0.03, 0.14, 0.02)
+mesh = SubResource("SphereMesh_soul")
+
+[node name="Neck" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.125, 0)
+mesh = SubResource("CylinderMesh_neck")
+
+[node name="JarRim" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.195, 0)
+mesh = SubResource("CylinderMesh_jar_rim")
+
+[node name="Jar" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.335, 0)
+mesh = SubResource("CylinderMesh_jar")
+
+[node name="FillBand" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.3, 0)
+mesh = SubResource("TorusMesh_fill_band")

@@ -1,0 +1,94 @@
+[gd_scene load_steps=12 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_core"]
+albedo_color = Color(0.18, 0.68, 0.8, 1)
+metallic = 0.4
+metallic_specular = 0.6
+roughness = 0.35
+emission_enabled = true
+emission = Color(0.05, 0.25, 0.32, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ghost"]
+transparency = 1
+cull_mode = 2
+albedo_color = Color(0.45, 0.95, 1, 0.4)
+metallic = 0.15
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.3, 0.85, 1, 1)
+emission_energy_multiplier = 0.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bridge"]
+albedo_color = Color(0.78, 0.83, 0.9, 1)
+metallic = 0.35
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_beam"]
+transparency = 1
+albedo_color = Color(0.7, 1, 1, 0.85)
+metallic = 0.0
+roughness = 0.1
+emission_enabled = true
+emission = Color(0.5, 0.95, 1, 1)
+emission_energy_multiplier = 1.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_emblem"]
+albedo_color = Color(0.9, 1, 1, 1)
+metallic = 0.2
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.6, 1, 1, 1)
+emission_energy_multiplier = 1.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_core"]
+material = SubResource("StandardMaterial3D_core")
+size = Vector3(0.44, 0.44, 0.44)
+
+[sub_resource type="BoxMesh" id="BoxMesh_copy"]
+material = SubResource("StandardMaterial3D_ghost")
+size = Vector3(0.374, 0.374, 0.374)
+
+[sub_resource type="BoxMesh" id="BoxMesh_bridge"]
+material = SubResource("StandardMaterial3D_bridge")
+size = Vector3(0.9, 0.045, 0.22)
+
+[sub_resource type="BoxMesh" id="BoxMesh_beam"]
+material = SubResource("StandardMaterial3D_beam")
+size = Vector3(0.05, 0.3, 0.05)
+
+[sub_resource type="BoxMesh" id="BoxMesh_emblem_core"]
+material = SubResource("StandardMaterial3D_emblem")
+size = Vector3(0.11, 0.11, 0.04)
+
+[sub_resource type="BoxMesh" id="BoxMesh_emblem_copy"]
+material = SubResource("StandardMaterial3D_emblem")
+size = Vector3(0.09, 0.09, 0.035)
+
+[node name="Duplicator" type="Node3D"]
+
+[node name="CoreCube" type="MeshInstance3D" parent="."]
+position = Vector3(-0.25, -0.05, 0)
+rotation_degrees = Vector3(0, -6, 0)
+mesh = SubResource("BoxMesh_core")
+
+[node name="Emblem" type="MeshInstance3D" parent="CoreCube"]
+position = Vector3(0, 0.02, 0.215)
+mesh = SubResource("BoxMesh_emblem_core")
+
+[node name="CopyCube" type="MeshInstance3D" parent="."]
+position = Vector3(0.25, -0.017, 0)
+rotation_degrees = Vector3(0, 9, 0)
+mesh = SubResource("BoxMesh_copy")
+
+[node name="Emblem" type="MeshInstance3D" parent="CopyCube"]
+position = Vector3(0, 0.015, 0.183)
+mesh = SubResource("BoxMesh_emblem_copy")
+
+[node name="Bridge" type="MeshInstance3D" parent="."]
+position = Vector3(-0.017, 0.192, 0)
+mesh = SubResource("BoxMesh_bridge")
+
+[node name="CopyBeam" type="MeshInstance3D" parent="."]
+position = Vector3(0.0165, -0.02, 0)
+mesh = SubResource("BoxMesh_beam")

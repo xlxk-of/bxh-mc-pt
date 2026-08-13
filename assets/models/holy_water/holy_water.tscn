@@ -1,0 +1,128 @@
+[gd_scene load_steps=14 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glass"]
+transparency = 1
+albedo_color = Color(0.8, 0.92, 1, 0.24)
+metallic = 0.1
+roughness = 0.04
+rim_enabled = true
+rim = 0.9
+emission_enabled = true
+emission = Color(0.35, 0.7, 1, 1)
+emission_energy_multiplier = 0.55
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_water"]
+transparency = 1
+albedo_color = Color(0.3, 0.62, 1, 0.9)
+metallic = 0
+roughness = 0.12
+emission_enabled = true
+emission = Color(0.2, 0.55, 1, 1)
+emission_energy_multiplier = 1.15
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cork"]
+albedo_color = Color(0.58, 0.4, 0.22, 1)
+metallic = 0
+roughness = 0.92
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cord"]
+albedo_color = Color(0.3, 0.2, 0.12, 1)
+metallic = 0
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gold"]
+albedo_color = Color(1, 0.8, 0.3, 1)
+metallic = 1
+roughness = 0.2
+emission_enabled = true
+emission = Color(1, 0.72, 0.2, 1)
+emission_energy_multiplier = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_body"]
+material = SubResource("StandardMaterial3D_glass")
+top_radius = 0.2
+bottom_radius = 0.2
+height = 0.56
+radial_segments = 22
+rings = 1
+cap_top = false
+
+[sub_resource type="SphereMesh" id="SphereMesh_shoulder"]
+material = SubResource("StandardMaterial3D_glass")
+radius = 0.2
+height = 0.32
+radial_segments = 22
+rings = 8
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_neck"]
+material = SubResource("StandardMaterial3D_glass")
+top_radius = 0.085
+bottom_radius = 0.085
+height = 0.16
+radial_segments = 14
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_water"]
+material = SubResource("StandardMaterial3D_water")
+top_radius = 0.175
+bottom_radius = 0.175
+height = 0.38
+radial_segments = 22
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_cork"]
+material = SubResource("StandardMaterial3D_cork")
+top_radius = 0.105
+bottom_radius = 0.088
+height = 0.14
+radial_segments = 14
+rings = 1
+
+[sub_resource type="TorusMesh" id="TorusMesh_cord"]
+material = SubResource("StandardMaterial3D_cord")
+inner_radius = 0.085
+outer_radius = 0.115
+rings = 20
+ring_segments = 8
+
+[sub_resource type="BoxMesh" id="BoxMesh_cross_bar"]
+material = SubResource("StandardMaterial3D_gold")
+size = Vector3(0.04, 0.26, 0.032)
+
+[sub_resource type="BoxMesh" id="BoxMesh_cross_arm"]
+material = SubResource("StandardMaterial3D_gold")
+size = Vector3(0.16, 0.038, 0.032)
+
+[node name="HolyWater" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.06, 0)
+mesh = SubResource("CylinderMesh_body")
+
+[node name="Shoulder" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.22, 0)
+mesh = SubResource("SphereMesh_shoulder")
+
+[node name="Neck" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.42, 0)
+mesh = SubResource("CylinderMesh_neck")
+
+[node name="Water" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 0)
+mesh = SubResource("CylinderMesh_water")
+
+[node name="Cork" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+mesh = SubResource("CylinderMesh_cork")
+
+[node name="Cord" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.994522, -0.104528, 0, 0.102244, 0.972789, -0.207912, 0.021733, 0.206773, 0.978148, 0, 0.36, 0)
+mesh = SubResource("TorusMesh_cord")
+
+[node name="CrossBar" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.759544, 0.120129, -0.639266, -0.240597, 0.96498, -0.104528, 0.604323, 0.233199, 0.761848, 0.154269, 0.14, 0.183851)
+mesh = SubResource("BoxMesh_cross_bar")
+
+[node name="CrossArm" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.759544, 0.120129, -0.639266, -0.240597, 0.96498, -0.104528, 0.604323, 0.233199, 0.761848, 0.162918, 0.209479, 0.200641)
+mesh = SubResource("BoxMesh_cross_arm")

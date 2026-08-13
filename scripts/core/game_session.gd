@@ -1,7 +1,8 @@
 class_name GameSession
 extends Node
-## Full port of game_state.py -- board, scoring, combos, all 22 cards, 5 items,
-## 4 perks, 5 contracts, the Giga Boss and every game-over path.
+## Full port of game_state.py -- board, scoring, combos, every card, item, perk
+## and contract, the Giga Boss and every game-over path, plus the cross-run Sin
+## Tree bonuses read from the Profile autoload.
 ##
 ## This node owns no visuals. It mutates state and emits signals; scenes render
 ## from those signals. That split is what makes the loop testable headlessly.
@@ -41,6 +42,7 @@ var grid_cols := Cfg.GRID_COLS_DEFAULT
 var board: Array = []
 
 var hand: Array = []                 # Array[Dictionary] of shape dicts
+var next_hand: Array = []            # Architect's Eye preview; empty when unearned
 var selected_index := 0
 var ghost_pos := Vector2i.ZERO
 var pocketed_piece: Variant = null
@@ -50,6 +52,7 @@ var money := Cfg.STARTING_MONEY
 var round_count := 1
 var sets_placed_in_round := 1
 var sets_per_round_target := Cfg.SETS_PER_ROUND_DEFAULT
+var bonus_sets_this_round := 0
 
 var cards: Array = []
 var items: Array = []
@@ -61,10 +64,15 @@ var max_items := Cfg.INITIAL_MAX_ITEMS
 var combo_streak := 0
 var combo_miss_allowance := Cfg.MAX_COMBO_CHANCES
 var combo_allowance_bonus := 0
+var combo_shield := 0
 
 var passive := {}
 var obstacles_on_board := false
 var is_game_over := false
+## Soul Embers this run paid out, read by the game-over screen.
+var last_run_embers := 0
+var second_skin_used := false
+var sin_revive_used := false
 
 var pending_effect: Dictionary = {}   # {type, size, source}
 var potential_clear_cells: Array = []
@@ -82,6 +90,7 @@ var boss_laser_is_row := false
 var boss_warning_active := false
 var boss_next_line := -1
 var boss_next_is_row := false
+var boss_grace_left := 0   # Heavy Eyelids: placements the warned shot still waits
 
 var _clear_lock := false   # guards re-entrant clears during cascades
 
@@ -94,20 +103,24 @@ func _init() -> void:
 #  Setup / lifecycle
 # ==========================================================================
 func reset_run() -> void:
-	grid_rows = Cfg.GRID_ROWS_DEFAULT
-	grid_cols = Cfg.GRID_COLS_DEFAULT
+	# The Widening Pit is permanent, so the board it opens is part of the reset.
+	var grid_bonus := int(Profile.bonus("grid_size_bonus"))
+	grid_rows = mini(Cfg.MAX_GRID_ROWS, Cfg.GRID_ROWS_DEFAULT + grid_bonus)
+	grid_cols = mini(Cfg.MAX_GRID_COLS, Cfg.GRID_COLS_DEFAULT + grid_bonus)
 	_make_empty_board()
 
 	hand = []
+	next_hand = []
 	selected_index = 0
 	ghost_pos = Vector2i(grid_rows / 2, grid_cols / 2)
 	pocketed_piece = null
 
 	score = 0
-	money = Cfg.STARTING_MONEY
+	money = Cfg.STARTING_MONEY + int(Profile.bonus("start_money_bonus"))
 	round_count = 1
 	sets_placed_in_round = 1
 	sets_per_round_target = Cfg.SETS_PER_ROUND_DEFAULT
+	bonus_sets_this_round = 0
 
 	cards = []
 	items = []
@@ -116,12 +129,15 @@ func reset_run() -> void:
 	max_cards = Cfg.INITIAL_MAX_CARDS
 	max_items = Cfg.INITIAL_MAX_ITEMS
 
-	combo_streak = 0
+	combo_streak = int(Profile.bonus("combo_start_streak"))
 	combo_allowance_bonus = 0
 	combo_miss_allowance = Cfg.MAX_COMBO_CHANCES
+	combo_shield = 0
 
 	obstacles_on_board = false
 	is_game_over = false
+	second_skin_used = false
+	sin_revive_used = false
 	pending_effect = {}
 	potential_clear_cells = []
 	conjure_active = false
@@ -137,8 +153,22 @@ func reset_run() -> void:
 	boss_warning_active = false
 	boss_next_line = -1
 	boss_next_is_row = false
+	boss_grace_left = 0
 
 	recalculate_passives()
+	shop_reroll_cost = _base_reroll_cost()
+	_grant_starting_items()
+
+
+## Ash on the Tongue hands the run a random item before the first piece drops.
+## Safe inside reset_run() because from_save_dict() overwrites `items` after it.
+func _grant_starting_items() -> void:
+	var count := int(Profile.bonus("start_item_count"))
+	if count <= 0 or Cards.ITEMS.is_empty():
+		return
+	for _i in mini(count, max_items):
+		var master: Dictionary = Cards.ITEMS[randi() % Cards.ITEMS.size()]
+		items.append(Cards.new_item_instance(master["name"]))
 
 
 func start_new_run() -> void:
@@ -243,6 +273,13 @@ func count_cards(effective: String) -> int:
 	return n
 
 
+func _has_perk(perk_name: String) -> bool:
+	for p in perks:
+		if p.get("name", "") == perk_name:
+			return true
+	return false
+
+
 func find_contract(contract_name: String) -> Variant:
 	for c in contracts:
 		if c.get("name", "") == contract_name:
@@ -259,7 +296,7 @@ func contract_curse_active(contract_name: String) -> bool:
 func init_card_state(card: Dictionary) -> void:
 	var n: String = card.get("name", "")
 	match n:
-		"Shape Shifter", "Trashcan", "Barrel":
+		"Shape Shifter", "Trashcan", "Barrel", "Duplicator":
 			card["state"]["used_this_round"] = false
 		"Star Streak":
 			card["state"]["insurance_used_this_combo"] = false
@@ -270,13 +307,28 @@ func init_card_state(card: Dictionary) -> void:
 		"Soul Stamp":
 			card["state"]["soul_stamp_active"] = false
 			card["state"]["soul_stamp_available"] = true
+		"Holy Bomb":
+			card["state"]["holy_r"] = -1
+			card["state"]["holy_c"] = -1
+		"Soul Siphon":
+			card["state"]["siphon_level"] = 0
+		"Infernal Engine":
+			card["state"]["engine_clean"] = 0
+			card["state"]["engine_bonus"] = 0.0
+		"Iron Lung":
+			card["state"]["lung_used_this_round"] = false
+		"Fool's Gold":
+			card["state"]["gold_used_this_round"] = false
+		"Second Wind":
+			card["state"]["wind_used_this_round"] = false
 		"The Mimic":
 			card["state"]["mimic_change_available"] = true
 			if not String(card.get("mimic", "")).is_empty():
 				init_mimic_state(card, card["mimic"])
 			else:
 				card["mimic_state"] = {}
-	# Merlin's Hat keeps chosen_piece_name / selection_cooldown_round across rounds.
+	# Merlin's Hat keeps chosen_piece_name / selection_cooldown_round across rounds,
+	# Hell's Bell keeps bell_count and Time Shard keeps shard_ready_round.
 
 
 func init_mimic_state(card: Dictionary, mimicked: String) -> void:
@@ -284,7 +336,7 @@ func init_mimic_state(card: Dictionary, mimicked: String) -> void:
 	if Cards.card(mimicked).is_empty():
 		return
 	match mimicked:
-		"Shape Shifter", "Trashcan", "Barrel":
+		"Shape Shifter", "Trashcan", "Barrel", "Duplicator":
 			card["mimic_state"]["used_this_round"] = false
 		"Soul Stamp":
 			card["mimic_state"]["soul_stamp_active"] = false
@@ -295,6 +347,20 @@ func init_mimic_state(card: Dictionary, mimicked: String) -> void:
 			card["mimic_state"]["last_bomb_streak_level"] = 0
 		"Window Shopper":
 			card["mimic_state"]["free_reroll_used_this_shop"] = false
+		"Holy Bomb":
+			card["mimic_state"]["holy_r"] = -1
+			card["mimic_state"]["holy_c"] = -1
+		"Soul Siphon":
+			card["mimic_state"]["siphon_level"] = 0
+		"Infernal Engine":
+			card["mimic_state"]["engine_clean"] = 0
+			card["mimic_state"]["engine_bonus"] = 0.0
+		"Iron Lung":
+			card["mimic_state"]["lung_used_this_round"] = false
+		"Fool's Gold":
+			card["mimic_state"]["gold_used_this_round"] = false
+		"Second Wind":
+			card["mimic_state"]["wind_used_this_round"] = false
 
 
 # ==========================================================================
@@ -307,32 +373,83 @@ func recalculate_passives() -> void:
 		"shop_discount": 0.0,
 		"star_streak_bonus": 0,
 		"cards_can_duplicate": false,
+		"score_double": false,
+		"round_income": 0,
+		"bomb_size_bonus": 0,
+		"reroll_cap": 0,
+		"obstacle_reduction": 0,
+		"combo_scale": 1.0,
 	}
 	sets_per_round_target = Cfg.SETS_PER_ROUND_DEFAULT
 
+	# One pass over the perks; the counts below feed blocks further down, so this
+	# has to finish before the combo allowance and the slot caps are computed.
+	var breaths := 0
+	var wallets := 0
+	var hagglers := 0
+	var blasts := 0
+	var frames := 0
+	var gilders := 0
+	var pouches := 0
+	var belts := 0
+	var cheap_rerolls := false
 	for p in perks:
 		match p.get("name", ""):
 			"Score Boost Perk":
 				passive["score_multiplier_bonus"] += 0.5
 			"More Choices Perk":
 				passive["extra_piece_in_set"] = 1
+			"Deep Breath Perk":
+				breaths += 1
+			"Fat Wallet Perk":
+				wallets += 1
+			"Haggler Perk":
+				hagglers += 1
+			"Bigger Blast Perk":
+				blasts += 1
+			"Cheap Rerolls Perk":
+				cheap_rerolls = true
+			"Sturdy Frame Perk":
+				frames += 1
+			"Golden Streak Perk":
+				gilders += 1
+			"Extra Card Pouch":
+				pouches += 1
+			"Extra Item Belt":
+				belts += 1
+	breaths = mini(3, breaths)
+	passive["round_income"] = 3 * mini(3, wallets)
+	# Kept even so apply_clear_effect()'s size / 2 centring stays on the tapped cell.
+	passive["bomb_size_bonus"] = 2 * mini(2, blasts) + int(Profile.bonus("bomb_size_bonus"))
+	passive["reroll_cap"] = 3 if cheap_rerolls else 0
+	passive["obstacle_reduction"] = mini(2, frames)
+	passive["combo_scale"] = 1.0 + 0.5 * mini(2, gilders)
 
 	# "Just a Favor": x10 multi while the curse still stands.
 	if contract_curse_active("Just a Favor"):
 		passive["score_multiplier_bonus"] += 9.0
 
+	passive["score_multiplier_bonus"] += Profile.bonus("score_mult_bonus")
+
 	for card in cards:
 		if card.get("name", "") == "Echo Chamber":
 			passive["cards_can_duplicate"] = true
+		if card.get("name", "") == "Demon Pact":
+			passive["score_double"] = true
+		if effective_name(card) == "Infernal Engine":
+			passive["score_multiplier_bonus"] += float(get_state(card, "engine_bonus", 0.0))
 
-	passive["shop_discount"] = minf(1.0, count_cards("Thrifting") * 0.20)
-	sets_per_round_target = maxi(1, Cfg.SETS_PER_ROUND_DEFAULT - count_cards("Efficiency Expert"))
+	# Capped below 1.0 so no stack of discounts can ever make a shop entry free.
+	passive["shop_discount"] = minf(0.90, count_cards("Thrifting") * 0.20 + 0.10 * mini(3, hagglers))
+	# Time Crystal adds after the Efficiency Expert subtraction, or the two cancel.
+	sets_per_round_target = maxi(1, Cfg.SETS_PER_ROUND_DEFAULT - count_cards("Efficiency Expert")
+		- int(Profile.bonus("sets_per_round_reduction"))) + bonus_sets_this_round
 
 	var streaks := count_cards("Star Streak")
 	passive["star_streak_bonus"] = streaks
 
 	var old_max := Cfg.MAX_COMBO_CHANCES + combo_allowance_bonus
-	combo_allowance_bonus = streaks
+	combo_allowance_bonus = streaks + breaths + int(Profile.bonus("combo_chance_bonus"))
 	var new_max := Cfg.MAX_COMBO_CHANCES + combo_allowance_bonus
 	if combo_miss_allowance == old_max:
 		combo_miss_allowance = new_max
@@ -340,15 +457,8 @@ func recalculate_passives() -> void:
 		combo_miss_allowance = clampi(combo_miss_allowance + (new_max - old_max), 0, new_max)
 
 	# Perk slot caps.
-	var pouches := 0
-	var belts := 0
-	for p in perks:
-		if p.get("name", "") == "Extra Card Pouch":
-			pouches += 1
-		elif p.get("name", "") == "Extra Item Belt":
-			belts += 1
-	max_cards = Cfg.INITIAL_MAX_CARDS + mini(pouches, 5)
-	max_items = Cfg.INITIAL_MAX_ITEMS + mini(belts, 3)
+	max_cards = Cfg.INITIAL_MAX_CARDS + mini(pouches, 5) + int(Profile.bonus("card_slot_bonus"))
+	max_items = Cfg.INITIAL_MAX_ITEMS + mini(belts, 3) + int(Profile.bonus("item_slot_bonus"))
 
 	stats_changed.emit()
 
@@ -366,6 +476,21 @@ func soul_stamp_provider() -> Variant:
 
 func soul_stamp_armed() -> bool:
 	return soul_stamp_provider() != null
+
+
+## Mirror Soul's reflection roll, made once per consumption attempt. Callers ask
+## it right where they would otherwise remove the item, so Magic Ball's deferred
+## consumption gets the same treatment as an instant one.
+func mirror_soul_saves() -> bool:
+	var n := count_cards("Mirror Soul")
+	if n == 0:
+		return false
+	if randf() >= minf(0.70, 0.35 * n):
+		return false
+	post_message("Mirror Soul: item preserved!", Cfg.MAGENTA, 1.0)
+	Audio.play(Cfg.SFX_CARD_MET, 0.8)
+	card_triggered.emit("Mirror Soul")
+	return true
 
 
 func piece_cells(shape: Dictionary, r: int, c: int) -> Array:
@@ -478,15 +603,20 @@ func place_piece(shape: Dictionary, r: int, c: int) -> bool:
 	var has_charming := has_card("Charming")
 	var has_devils_luck := has_card("Devil's Luck")
 
-	# --- Charming: 10% chance of a 3x3 blast centred on the piece ---
+	# --- Charming / Smoldering Fists: a blast centred on the piece ---
+	var blast_chance: float = (0.10 if has_charming else 0.0) + Profile.bonus("blast_chance_bonus")
 	var charming_cleared: Array = []
-	if has_charming and randf() < 0.10:
+	if blast_chance > 0.0 and randf() < blast_chance:
 		Audio.play(Cfg.SFX_ITEM_BOMB, 0.8)
-		post_message("Charming Explosion!", Cfg.YELLOW, 1.0)
-		card_triggered.emit("Charming")
+		if has_charming:
+			post_message("Charming Explosion!", Cfg.YELLOW, 1.0)
+			card_triggered.emit("Charming")
+		else:
+			post_message("Smoldering Fists ignite!", Cfg.ORANGE, 1.0)
+		var radius: int = 1 + int(Profile.bonus("blast_radius_bonus"))
 		var centre := _shape_centre(shape, r, c)
-		for dr in range(-1, 2):
-			for dc in range(-1, 2):
+		for dr in range(-radius, radius + 1):
+			for dc in range(-radius, radius + 1):
 				var er: int = centre.x + dr
 				var ec: int = centre.y + dc
 				if er >= 0 and er < grid_rows and ec >= 0 and ec < grid_cols and is_clearable(board[er][ec]):
@@ -500,7 +630,13 @@ func place_piece(shape: Dictionary, r: int, c: int) -> bool:
 			check_and_clear_lines()
 
 	# --- Giga Boss: a warned shot fires on this placement ---
-	if boss_active and boss_warning_active:
+	if boss_active and boss_warning_active and boss_grace_left > 0:
+		# Heavy Eyelids: the shot is still coming, just not yet.
+		boss_grace_left -= 1
+		boss_laser_line = -1
+		post_message("Giga Boss stalls... %d placement(s) to impact." % (boss_grace_left + 1), Cfg.ORANGE, 1.0)
+		boss_state_changed.emit()
+	elif boss_active and boss_warning_active:
 		boss_laser_line = boss_next_line
 		boss_laser_is_row = boss_next_is_row
 		boss_warning_active = false
@@ -543,6 +679,10 @@ func place_piece(shape: Dictionary, r: int, c: int) -> bool:
 
 	if cleared_lines > 0:
 		_bump_combo("")
+		# Momentum runs before Overcharge, which reads combo_streak / 10 and so
+		# has to see the surged value rather than the pre-surge one.
+		_apply_momentum(cleared_lines)
+		_charge_infernal_engines()
 		_trigger_overcharge()
 	elif charming_cleared.is_empty():
 		_handle_missed_combo(has_devils_luck)
@@ -586,12 +726,69 @@ func _bump_combo(source: String) -> void:
 	for card in cards:
 		if effective_name(card) == "Star Streak":
 			set_state(card, "insurance_used_this_combo", false)
+	_siphon_souls()
 	var label := "COMBO x%d!" % combo_streak
 	if not source.is_empty():
 		label = "COMBO x%d (%s)!" % [combo_streak, source]
 	post_message(label, Cfg.COMBO_TEXT_COLOR, 1.5)
 	Juice.set_combo(combo_streak)
 	combo_changed.emit(combo_streak, combo_miss_allowance)
+
+
+## Soul Siphon pays out once per five-step rung of the ladder, so a streak that
+## is rebuilt from scratch has to climb past its old rung to pay again.
+func _siphon_souls() -> void:
+	var paid := false
+	for card in cards:
+		if effective_name(card) != "Soul Siphon":
+			continue
+		@warning_ignore("integer_division")
+		var lvl: int = combo_streak / 5
+		if combo_streak < 5 or lvl <= int(get_state(card, "siphon_level", 0)):
+			continue
+		money += 3
+		set_state(card, "siphon_level", lvl)
+		post_message("Soul Siphon: +$3!", Cfg.MONEY_COLOR, 1.0)
+		Audio.play(Cfg.SFX_CARD_MET, 0.7)
+		card_triggered.emit("Soul Siphon")
+		paid = true
+	if paid:
+		stats_changed.emit()
+
+
+## Momentum: a triple-or-better clear kicks the streak forward five steps.
+func _apply_momentum(cleared_lines: int) -> void:
+	var surge := 5 * count_cards("Momentum")
+	if cleared_lines < 3 or surge == 0:
+		return
+	combo_streak += surge
+	combo_miss_allowance = Cfg.MAX_COMBO_CHANCES + combo_allowance_bonus
+	Audio.play_combo(combo_streak)
+	post_message("MOMENTUM! Combo x%d!" % combo_streak, Cfg.COMBO_TEXT_COLOR, 1.5)
+	card_triggered.emit("Momentum")
+	Juice.set_combo(combo_streak)
+	Juice.shake(0.3, 25)
+	combo_changed.emit(combo_streak, combo_miss_allowance)
+
+
+## Infernal Engine banks half a multiplier every fifth clearing placement. The
+## bonus is held until the round ends; only the charge counter is fragile.
+func _charge_infernal_engines() -> void:
+	var fired := false
+	for card in cards:
+		if effective_name(card) != "Infernal Engine":
+			continue
+		var clean: int = int(get_state(card, "engine_clean", 0)) + 1
+		set_state(card, "engine_clean", clean)
+		if clean % 5 != 0:
+			continue
+		set_state(card, "engine_bonus", float(get_state(card, "engine_bonus", 0.0)) + 0.5)
+		post_message("Infernal Engine: +0.5x mult!", Cfg.ORANGE, 1.5)
+		Audio.play(Cfg.SFX_CARD_MET)
+		card_triggered.emit("Infernal Engine")
+		fired = true
+	if fired:
+		recalculate_passives()
 
 
 func _trigger_overcharge() -> void:
@@ -641,6 +838,24 @@ func _handle_missed_combo(has_devils_luck: bool) -> void:
 	if devil_cleared:
 		return
 
+	if combo_shield > 0:
+		combo_shield -= 1
+		post_message("Ash shield absorbs the miss (%d left)." % combo_shield, Cfg.CYAN, 1.0)
+		Audio.play(Cfg.SFX_CARD_MET, 0.6)
+		combo_changed.emit(combo_streak, combo_miss_allowance)
+		return
+
+	# One Iron Lung per miss, so two copies buy two free misses in a round.
+	for card in cards:
+		if effective_name(card) != "Iron Lung" or get_state(card, "lung_used_this_round", false):
+			continue
+		set_state(card, "lung_used_this_round", true)
+		post_message("Iron Lung holds the combo!", Cfg.GREEN, 1.0)
+		Audio.play(Cfg.SFX_CARD_MET, 0.7)
+		card_triggered.emit("Iron Lung")
+		combo_changed.emit(combo_streak, combo_miss_allowance)
+		return
+
 	combo_miss_allowance -= 1
 	if combo_miss_allowance >= 0:
 		combo_changed.emit(combo_streak, combo_miss_allowance)
@@ -657,6 +872,31 @@ func _handle_missed_combo(has_devils_luck: bool) -> void:
 			combo_changed.emit(combo_streak, combo_miss_allowance)
 			return
 
+	# Second Wind pre-empts the loss outright, so the Just a Favor toll below it
+	# never fires: a held combo is not a lost one.
+	for card in cards:
+		if effective_name(card) != "Second Wind":
+			continue
+		if get_state(card, "wind_used_this_round", false) or combo_streak < 4:
+			continue
+		set_state(card, "wind_used_this_round", true)
+		@warning_ignore("integer_division")
+		combo_streak = combo_streak / 2
+		combo_miss_allowance = Cfg.MAX_COMBO_CHANCES + combo_allowance_bonus
+		for other in cards:
+			match effective_name(other):
+				"Star Streak":
+					set_state(other, "insurance_used_this_combo", false)
+				"Soul Siphon":
+					@warning_ignore("integer_division")
+					set_state(other, "siphon_level", combo_streak / 5)
+		post_message("Second Wind! Combo held at x%d." % combo_streak, Cfg.GREEN, 1.5)
+		Audio.play(Cfg.SFX_CARD_MET)
+		card_triggered.emit("Second Wind")
+		Juice.set_combo(combo_streak)
+		combo_changed.emit(combo_streak, combo_miss_allowance)
+		return
+
 	if combo_streak > 1:
 		post_message("Combo Lost!", Cfg.RED, 1.5)
 		Juice.shake(0.2, 20)
@@ -668,12 +908,18 @@ func _handle_missed_combo(has_devils_luck: bool) -> void:
 		Audio.play(Cfg.SFX_LOSE, 0.7)
 		stats_changed.emit()
 
-	combo_streak = 0
+	# Immortal Name keeps a floor under the streak instead of dropping to zero.
+	combo_streak = int(Profile.bonus("combo_start_streak"))
 	combo_miss_allowance = Cfg.MAX_COMBO_CHANCES + combo_allowance_bonus
 	for card in cards:
-		if effective_name(card) == "Star Streak":
-			set_state(card, "insurance_used_this_combo", false)
-	Juice.set_combo(0)
+		match effective_name(card):
+			"Star Streak":
+				set_state(card, "insurance_used_this_combo", false)
+			"Soul Siphon":
+				set_state(card, "siphon_level", 0)
+			"Infernal Engine":
+				set_state(card, "engine_clean", 0)
+	Juice.set_combo(combo_streak)
 	combo_changed.emit(combo_streak, combo_miss_allowance)
 
 
@@ -754,6 +1000,9 @@ func check_and_clear_lines() -> int:
 	if cleared_count == 0:
 		return 0
 
+	# Must run pre-collapse, while these row/column indices still address real cells.
+	_melt_obstacles(rows_to_clear, all_cols)
+
 	_collapse_rows(rows_to_clear)
 	_collapse_columns(all_cols)
 
@@ -770,6 +1019,55 @@ func check_and_clear_lines() -> int:
 	_award_clear(cleared_count, angel_hits, not rows_to_clear.is_empty(), not all_cols.is_empty())
 	board_changed.emit()
 	return cleared_count
+
+
+## Magma Veins eats every obstacle orthogonally touching a line as it clears.
+func _melt_obstacles(rows: Array, cols: Array) -> void:
+	var veins := count_cards("Magma Veins")
+	if veins == 0:
+		return
+	var found: Dictionary = {}
+	for r in rows:
+		for c in grid_cols:
+			_collect_adjacent_obstacles(r, c, found)
+	for c in cols:
+		for r in grid_rows:
+			_collect_adjacent_obstacles(r, c, found)
+	if found.is_empty():
+		return
+
+	var melted: Array = found.keys()
+	for cell_pos in melted:
+		board[cell_pos.x][cell_pos.y] = 0
+	var gained: int = 150 * melted.size() * veins
+	score += gained
+	cells_cleared.emit(melted, "bomb")
+	post_message("Magma Veins: %d obstacle(s) melted!" % melted.size(), Cfg.ORANGE, 1.5)
+	Audio.play(Cfg.SFX_OBSTACLE_CONVERT)
+	card_triggered.emit("Magma Veins")
+	floating_score.emit("+%d MAGMA" % gained, "score")
+	Juice.shake(0.2, 18)
+	_rescan_obstacles()
+
+
+func _collect_adjacent_obstacles(r: int, c: int, found: Dictionary) -> void:
+	for step: Vector2i in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+		var rr: int = r + step.x
+		var cc: int = c + step.y
+		if rr < 0 or rr >= grid_rows or cc < 0 or cc >= grid_cols:
+			continue
+		if is_obstacle(board[rr][cc]):
+			found[Vector2i(rr, cc)] = true
+
+
+## obstacles_on_board is the hard-block flag, so drop it the moment none remain
+## or placement stays blocked on a board that has nothing left to block it.
+func _rescan_obstacles() -> void:
+	for r in grid_rows:
+		for c in grid_cols:
+			if is_obstacle(board[r][c]):
+				return
+	obstacles_on_board = false
 
 
 func _collapse_rows(rows_to_clear: Array) -> void:
@@ -808,10 +1106,41 @@ func _collapse_columns(cols: Array) -> void:
 		board[r] = row
 
 
+## Slam every column down so its cells sit flush at the bottom, obstacles riding
+## along like anything else. Returns true when at least one cell changed row.
+func _gravity_compact() -> bool:
+	var moved := false
+	for c in grid_cols:
+		var stack: Array = []
+		var came_from: Array = []
+		for r in grid_rows:
+			if not is_empty_cell(board[r][c]):
+				stack.append(board[r][c])
+				came_from.append(r)
+		var top: int = grid_rows - stack.size()
+		for i in stack.size():
+			if came_from[i] != top + i:
+				moved = true
+		for r in grid_rows:
+			board[r][c] = 0
+		for i in stack.size():
+			board[top + i][c] = stack[i]
+	return moved
+
+
 func _award_clear(count: int, angel_hits: int, had_rows: bool, had_cols: bool) -> void:
 	var earned: int = count * Cfg.BASE_MONEY_PER_LINE
 	if count > 1:
 		earned += (count - 1) * 2
+	# BASE_MONEY_PER_LINE is 1, so a single Crown doubles all line income; that is
+	# why it stacks linearly rather than multiplicatively.
+	var greed := count_cards("Crown of Greed")
+	if greed > 0:
+		earned += count * greed
+		post_message("Crown of Greed: +$%d!" % (count * greed), Cfg.MONEY_COLOR, 1.0)
+		Audio.play(Cfg.SFX_CARD_MET, 0.6)
+		card_triggered.emit("Crown of Greed")
+	earned += count * int(Profile.bonus("money_per_line_bonus"))
 	if angel_hits > 0:
 		earned += angel_hits
 		post_message("+$%d (Angel's Kiss)!" % angel_hits, Cfg.MONEY_COLOR, 1.0)
@@ -820,12 +1149,16 @@ func _award_clear(count: int, angel_hits: int, had_rows: bool, had_cols: bool) -
 	money += earned
 
 	var mult: float = 1.0 + passive.get("score_multiplier_bonus", 0.0)
-	var combo_mult: int = maxi(1, combo_streak)
+	# Scaling the multiplier rather than the total keeps Golden Streak visible in
+	# the "%d x %d" text floating_score already prints.
+	var combo_mult: int = maxi(1, int(combo_streak * passive.get("combo_scale", 1.0)))
 	var line_bonus := 1.0
 	if count == 2:
 		line_bonus = 2.5
 	elif count >= 3:
 		line_bonus = count * 1.5
+	if count >= 2:
+		line_bonus *= 1.0 + Profile.bonus("multi_clear_score_bonus")
 	var line_score: float = Cfg.BASE_SCORE_PER_LINE * count * line_bonus
 
 	var terraform := count_cards("Terraform")
@@ -840,10 +1173,30 @@ func _award_clear(count: int, angel_hits: int, had_rows: bool, had_cols: bool) -
 		line_score *= pow(2.0, sky)
 		post_message("Skyscraper x%d Score!" % int(pow(2, sky)), Cfg.YELLOW, 1.0)
 
+	# Fool's Gold multiplies line_score rather than the total, so the x3 lands
+	# inside the number the floating label already shows.
+	var golds := 0
+	for card in cards:
+		if effective_name(card) != "Fool's Gold" or get_state(card, "gold_used_this_round", false):
+			continue
+		line_score *= 3.0
+		set_state(card, "gold_used_this_round", true)
+		golds += 1
+	if golds > 0:
+		post_message("Fool's Gold x%d!" % int(pow(3, golds)), Cfg.ACCENT_PRIMARY, 1.5)
+		Audio.play(Cfg.SFX_CARD_MET)
+		card_triggered.emit("Fool's Gold")
+
 	var total: float = line_score * mult * combo_mult
+	var pact: bool = passive.get("score_double", false)
+	if pact:
+		total *= 2.0
 	score += int(round(total))
 
-	floating_score.emit("%d x %d" % [int(round(line_score * mult)), combo_mult], "score")
+	var label := "%d x %d" % [int(round(line_score * mult)), combo_mult]
+	if pact:
+		label += " x2 PACT"
+	floating_score.emit(label, "score")
 
 	if count == 1:
 		post_message("Line Cleared!", Cfg.WHITE, 1.0)
@@ -862,7 +1215,45 @@ func _award_clear(count: int, angel_hits: int, had_rows: bool, had_cols: bool) -
 		Juice.flash(Cfg.ACCENT_PRIMARY, 0.5, 0.6)
 		floating_score.emit("PERFECTIONIST +%d" % Cfg.PERFECTIONIST_BONUS, "multiplier")
 
+	# The lock keeps the Bell's own cross out of this award; the cascade it makes
+	# is re-scored through the normal path once the lock is off.
+	if not _clear_lock and count_cards("Hell's Bell") > 0:
+		_clear_lock = true
+		for card in cards:
+			if effective_name(card) != "Hell's Bell":
+				continue
+			var bell: int = int(get_state(card, "bell_count", 0)) + count
+			while bell >= 10:
+				bell -= 10
+				_ring_hells_bell()
+			set_state(card, "bell_count", bell)
+		_clear_lock = false
+		check_and_clear_lines()
+
 	stats_changed.emit()
+
+
+## One toll: a full row and column go at once, wherever the Bell happens to point.
+func _ring_hells_bell() -> void:
+	var br := randi() % grid_rows
+	var bc := randi() % grid_cols
+	var found: Dictionary = {}
+	for c in grid_cols:
+		if is_clearable(board[br][c]):
+			found[Vector2i(br, c)] = true
+	for r in grid_rows:
+		if is_clearable(board[r][bc]):
+			found[Vector2i(r, bc)] = true
+	var hit: Array = found.keys()
+	for cell_pos in hit:
+		board[cell_pos.x][cell_pos.y] = 0
+	if not hit.is_empty():
+		cells_cleared.emit(hit, "bomb")
+	Audio.play(Cfg.SFX_ITEM_BOMB, 1.1)
+	Juice.shake(0.45, 40)
+	Juice.flash(Cfg.ORANGE, 0.3, 0.4)
+	post_message("HELL'S BELL TOLLS! Row %d, Col %d!" % [br + 1, bc + 1], Cfg.ORANGE, 2.0)
+	card_triggered.emit("Hell's Bell")
 
 
 func _board_is_clear() -> bool:
@@ -882,20 +1273,24 @@ func _end_of_set(has_devils_luck: bool) -> void:
 
 	# Boss-round obstacles seed the board.
 	if round_count > 0 and round_count % 5 == 0:
-		var to_add := 1 + randi() % 3
-		var empties: Array = []
-		for r in grid_rows:
-			for c in grid_cols:
-				if is_empty_cell(board[r][c]):
-					empties.append(Vector2i(r, c))
-		empties.shuffle()
-		var placed := mini(to_add, empties.size())
-		for i in placed:
-			board[empties[i].x][empties[i].y] = _make_obstacle()
-			obstacles_on_board = true
-		if placed > 0:
-			Audio.play(Cfg.SFX_OBSTACLE_APPEAR)
-			post_message("Obstacles appear!", Cfg.OBSTACLE_COLOR.lightened(0.4), 1.5)
+		var to_add: int = maxi(0, 1 + randi() % 3
+			- int(passive.get("obstacle_reduction", 0))
+			- int(Profile.bonus("obstacle_count_reduction")))
+		# A fully suppressed spawn stays silent: no sound, no message, no seeding.
+		if to_add > 0:
+			var empties: Array = []
+			for r in grid_rows:
+				for c in grid_cols:
+					if is_empty_cell(board[r][c]):
+						empties.append(Vector2i(r, c))
+			empties.shuffle()
+			var placed := mini(to_add, empties.size())
+			for i in placed:
+				board[empties[i].x][empties[i].y] = _make_obstacle()
+				obstacles_on_board = true
+			if placed > 0:
+				Audio.play(Cfg.SFX_OBSTACLE_APPEAR)
+				post_message("Obstacles appear!", Cfg.OBSTACLE_COLOR.lightened(0.4), 1.5)
 
 	if has_devils_luck and randf() < 0.33:
 		money += 3
@@ -919,11 +1314,58 @@ func _end_of_set(has_devils_luck: bool) -> void:
 			check_and_clear_lines()
 
 	_apply_angels_kiss()
+	_detonate_holy_bombs()
+
+	if has_card("Gravity Well") and _gravity_compact():
+		post_message("Gravity Well compacts the board!", Cfg.CYAN, 1.5)
+		Audio.play(Cfg.SFX_OBSTACLE_CONVERT, 0.8)
+		card_triggered.emit("Gravity Well")
+		Juice.shake(0.25, 20)
+		check_and_clear_lines()
+		board_changed.emit()
 
 	if sets_placed_in_round >= sets_per_round_target:
 		_advance_round()
 	else:
 		generate_hand()
+
+
+## Holy Bomb fills the zone it marked last set, then immediately marks a new one,
+## so every fill is telegraphed a full set before it lands.
+func _detonate_holy_bombs() -> void:
+	var any := false
+	for card in cards:
+		if effective_name(card) != "Holy Bomb":
+			continue
+		any = true
+		var hr: int = int(get_state(card, "holy_r", -1))
+		var hc: int = int(get_state(card, "holy_c", -1))
+		if hr >= 0 and hc >= 0:
+			var filled: Array = []
+			for dr in 3:
+				for dc in 3:
+					var rr: int = hr + dr
+					var cc: int = hc + dc
+					if rr < 0 or rr >= grid_rows or cc < 0 or cc >= grid_cols:
+						continue
+					if is_empty_cell(board[rr][cc]):
+						board[rr][cc] = _make_block(Cfg.ACCENT_PRIMARY)
+						filled.append(Vector2i(rr, cc))
+			if not filled.is_empty():
+				piece_placed.emit(filled, Cfg.ACCENT_PRIMARY)
+				post_message("Holy Bomb detonates!", Cfg.ACCENT_PRIMARY, 1.5)
+				Audio.play(Cfg.SFX_CARD_MET)
+				card_triggered.emit("Holy Bomb")
+				check_and_clear_lines()
+
+		var next_r := randi() % maxi(1, grid_rows - 2)
+		var next_c := randi() % maxi(1, grid_cols - 2)
+		set_state(card, "holy_r", next_r)
+		set_state(card, "holy_c", next_c)
+		post_message("Holy Bomb marks rows %d-%d, cols %d-%d."
+			% [next_r + 1, next_r + 3, next_c + 1, next_c + 3], Cfg.ACCENT_PRIMARY, 1.5)
+	if any:
+		board_changed.emit()
 
 
 ## Angel's Kiss re-rolls which single block is worth $1 at the start of each set.
@@ -955,6 +1397,7 @@ func _apply_angels_kiss() -> void:
 
 func _advance_round() -> void:
 	sets_placed_in_round = 0
+	bonus_sets_this_round = 0
 	round_count += 1
 
 	for card in cards:
@@ -963,9 +1406,11 @@ func _advance_round() -> void:
 	_tick_contracts()
 	recalculate_passives()
 	_apply_round_contracts()
+	_pay_round_income()
 
-	# Boss subsides at the round boundary, then may respawn.
-	if boss_active:
+	# Boss subsides at the round boundary, then may respawn. Demon Pact denies it
+	# even that pause.
+	if boss_active and not has_card("Demon Pact"):
 		post_message("Giga Boss temporarily subsides...", Cfg.GREEN, 2.0)
 		boss_active = false
 		boss_warning_active = false
@@ -981,6 +1426,10 @@ func _advance_round() -> void:
 		boss_laser_line = -1
 	elif round_count % 5 == 0:
 		spawn_chance = 0.05 if round_count <= 25 else 0.20
+
+	# Underdog's branch already force-cleared the boss, so it still wins outright.
+	if has_card("Demon Pact") and round_count % 5 == 0 and find_contract("Underdog") == null:
+		spawn_chance = maxf(spawn_chance, 0.35)
 
 	if randf() < spawn_chance:
 		boss_active = true
@@ -1022,7 +1471,7 @@ func _advance_round() -> void:
 		Audio.play_music(Cfg.MUSIC_LOBBY)
 		request_screen.emit("lucifer")
 	else:
-		shop_reroll_cost = Cfg.SHOP_REROLL_BASE_COST
+		shop_reroll_cost = _base_reroll_cost()
 		generate_shop_offers()
 		post_message("SHOP OPEN! (Round %d)" % round_count, Cfg.YELLOW, 3.0)
 		Audio.play_music(Cfg.MUSIC_LOBBY)
@@ -1093,6 +1542,37 @@ func _apply_round_contracts() -> void:
 	stats_changed.emit()
 
 
+## Every round-boundary payout, settled before the shop screen opens. Ledger
+## copies compound, each reading the balance the previous one left behind.
+func _pay_round_income() -> void:
+	var income: int = passive.get("round_income", 0)
+	if income > 0:
+		money += income
+		post_message("Fat Wallet: +$%d!" % income, Cfg.MONEY_COLOR, 1.5)
+		Audio.play(Cfg.SFX_BUY, 0.6)
+
+	for card in cards:
+		if effective_name(card) != "Ledger of Souls":
+			continue
+		@warning_ignore("integer_division")
+		var interest: int = mini(8, money / 10)
+		if interest > 0:
+			money += interest
+			post_message("Ledger of Souls: +$%d interest!" % interest, Cfg.MONEY_COLOR, 1.5)
+			Audio.play(Cfg.SFX_CARD_MET, 0.7)
+			card_triggered.emit("Ledger of Souls")
+
+	var rate := Profile.bonus("round_interest_rate")
+	if rate > 0.0:
+		var usury := int(money * rate)
+		if usury > 0:
+			money += usury
+			post_message("Usury: +$%d interest!" % usury, Cfg.MONEY_COLOR, 1.5)
+			Audio.play(Cfg.SFX_CARD_MET, 0.7)
+
+	stats_changed.emit()
+
+
 # ==========================================================================
 #  Giga Boss
 # ==========================================================================
@@ -1105,12 +1585,30 @@ func _choose_next_boss_target() -> void:
 	boss_next_is_row = randi() % 2 == 0
 	boss_next_line = randi() % (grid_rows if boss_next_is_row else grid_cols)
 	boss_warning_active = true
+	boss_grace_left = int(Profile.bonus("boss_grace_bonus"))
 	var kind := "Row" if boss_next_is_row else "Column"
 	post_message("Giga Boss: Warning! Next target: %s %d!" % [kind, boss_next_line + 1], Cfg.ORANGE, 1.5)
 	boss_state_changed.emit()
 
 
 func _fire_boss_laser() -> void:
+	# Frostbrand skips the damage, never the cycle: the fumbled shot still burns
+	# the warning, so the boss has to telegraph a fresh target.
+	var freeze := minf(0.80, 0.40 * count_cards("Frostbrand"))
+	if freeze > 0.0 and randf() < freeze:
+		post_message("Frostbrand: the Giga Boss freezes mid-cast!", Cfg.CYAN, 1.5)
+		Audio.play(Cfg.SFX_CARD_MET)
+		card_triggered.emit("Frostbrand")
+		Juice.flash(Cfg.CYAN, 0.25, 0.3)
+		boss_laser_line = -1
+		if boss_active:
+			_choose_next_boss_target()
+		else:
+			boss_warning_active = false
+			boss_next_line = -1
+			boss_state_changed.emit()
+		return
+
 	var hit: Array = []
 	var line := boss_laser_line
 	if boss_laser_is_row:
@@ -1137,6 +1635,10 @@ func _fire_boss_laser() -> void:
 		Juice.hitstop(0.06)
 		check_and_clear_lines()
 
+	# SCORCHED EARTH: the boss's own laser becomes combo fuel.
+	if line >= 0 and Profile.bonus("boss_laser_feeds_combo") > 0.0:
+		_bump_combo("BOSS")
+
 	boss_laser_line = -1
 	if boss_active:
 		_choose_next_boss_target()
@@ -1150,8 +1652,22 @@ func _fire_boss_laser() -> void:
 #  Hand generation
 # ==========================================================================
 func generate_hand() -> void:
+	# Architect's Eye means the set the player was shown is the set they get.
+	hand = next_hand if not next_hand.is_empty() else _roll_set()
+	next_hand = _roll_set() if Profile.bonus("next_set_preview") > 0.0 else []
+
+	selected_index = 0
+	ghost_pos = Vector2i(grid_rows / 2, grid_cols / 2) if not hand.is_empty() else Vector2i.ZERO
+	hand_changed.emit()
+	update_potential_clear_highlight()
+
+
+## One Merlin-weighted set of pieces. Split out of generate_hand() so the
+## Architect's Eye preview can roll the following set a turn early.
+func _roll_set() -> Array:
 	var base_count: int = [2, 2, 3][randi() % 3]
-	var count: int = base_count + int(passive.get("extra_piece_in_set", 0))
+	var count: int = base_count + int(passive.get("extra_piece_in_set", 0)) \
+		+ int(Profile.bonus("hand_size_bonus"))
 
 	# Merlin's Hat weights its chosen piece 5x per copy.
 	var merlin_picks := {}
@@ -1169,14 +1685,10 @@ func generate_hand() -> void:
 		for _i in weight:
 			pool.append(shape)
 
-	hand = []
-	for _i in count:
-		hand.append(Cfg.copy_shape(pool[randi() % pool.size()]))
-
-	selected_index = 0
-	ghost_pos = Vector2i(grid_rows / 2, grid_cols / 2) if not hand.is_empty() else Vector2i.ZERO
-	hand_changed.emit()
-	update_potential_clear_highlight()
+	var out: Array = []
+	for _i in maxi(1, count):
+		out.append(Cfg.copy_shape(pool[randi() % pool.size()]))
+	return out
 
 
 # ==========================================================================
@@ -1197,20 +1709,28 @@ func generate_shop_offers() -> void:
 		elif can_duplicate and not master.get("unique", false):
 			available.append(master)
 
+	var card_slots: int = 3 + int(Profile.bonus("shop_card_slots_bonus"))
+	var item_slots: int = 2 + int(Profile.bonus("shop_item_slots_bonus"))
+	var bias := Profile.bonus("shop_rarity_weight_bonus")
+
 	if not available.is_empty():
 		var chosen: Array = []
 		if not can_duplicate:
-			var pool: Array = available.duplicate()
-			pool.shuffle()
-			chosen = pool.slice(0, mini(3, pool.size()))
+			# Uniform until Green Eyes is bought; only then does rarity bias the draw.
+			if bias > 0.0:
+				chosen = _weighted_draw(available, card_slots, bias)
+			else:
+				var pool: Array = available.duplicate()
+				pool.shuffle()
+				chosen = pool.slice(0, mini(card_slots, pool.size()))
 		else:
 			var weights: Array = []
 			var total := 0.0
 			for m in available:
-				var w: float = Cards.rarity_weight(m["rarity"])
+				var w: float = _shop_weight(m, bias)
 				weights.append(w)
 				total += w
-			for _i in 3:
+			for _i in card_slots:
 				var roll := randf() * total
 				var acc := 0.0
 				for i in available.size():
@@ -1223,8 +1743,37 @@ func generate_shop_offers() -> void:
 
 	var item_pool: Array = Cards.ITEMS.duplicate()
 	item_pool.shuffle()
-	for m in item_pool.slice(0, mini(2, item_pool.size())):
+	for m in item_pool.slice(0, mini(item_slots, item_pool.size())):
 		shop_offers["items"].append({"name": m["name"], "cost": m["cost"], "rarity": m["rarity"]})
+
+
+## Shop weight for one master entry. Green Eyes lifts everything above Common.
+func _shop_weight(master: Dictionary, bias: float) -> float:
+	var w: float = Cards.rarity_weight(master.get("rarity", "Common"))
+	if master.get("rarity", "Common") != "Common":
+		w *= 1.0 + bias
+	return w
+
+
+## Weighted draw without replacement, for the shop that may not repeat a card.
+func _weighted_draw(pool: Array, count: int, bias: float) -> Array:
+	var remaining: Array = pool.duplicate()
+	var out: Array = []
+	while out.size() < count and not remaining.is_empty():
+		var total := 0.0
+		for m in remaining:
+			total += _shop_weight(m, bias)
+		var roll := randf() * total
+		var acc := 0.0
+		var picked: int = remaining.size() - 1
+		for i in remaining.size():
+			acc += _shop_weight(remaining[i], bias)
+			if roll <= acc:
+				picked = i
+				break
+		out.append(remaining[picked])
+		remaining.remove_at(picked)
+	return out
 
 
 func shop_price(entry_name: String, base_cost: int) -> int:
@@ -1239,6 +1788,19 @@ func window_shopper_free_reroll() -> Variant:
 	return null
 
 
+## Reroll price after Collector (a flat fee that never climbs) and Cheap Rerolls.
+func _base_reroll_cost() -> int:
+	var fixed := int(Profile.bonus("shop_reroll_fixed_cost"))
+	if fixed > 0:
+		return fixed
+	return _cap_reroll_cost(Cfg.SHOP_REROLL_BASE_COST)
+
+
+func _cap_reroll_cost(cost: int) -> int:
+	var cap: int = passive.get("reroll_cap", 0)
+	return mini(cost, cap) if cap > 0 else cost
+
+
 func reroll_shop() -> bool:
 	var free_card: Variant = window_shopper_free_reroll()
 	if free_card != null:
@@ -1248,9 +1810,12 @@ func reroll_shop() -> bool:
 		Audio.play(Cfg.SFX_SHOP_REROLL)
 		card_triggered.emit("Window Shopper")
 		return true
+	var fixed := int(Profile.bonus("shop_reroll_fixed_cost"))
+	shop_reroll_cost = fixed if fixed > 0 else _cap_reroll_cost(shop_reroll_cost)
 	if money >= shop_reroll_cost:
 		money -= shop_reroll_cost
-		shop_reroll_cost += 1
+		if fixed <= 0:
+			shop_reroll_cost = _cap_reroll_cost(shop_reroll_cost + 1)
 		generate_shop_offers()
 		post_message("Shop Rerolled!", Cfg.WHITE, 1.0)
 		Audio.play(Cfg.SFX_SHOP_REROLL)
@@ -1437,12 +2002,14 @@ func add_perk(perk_name: String) -> void:
 
 func sell_price_for_card(card: Dictionary) -> int:
 	@warning_ignore("integer_division")
-	return Cfg.RARITY_COSTS.get(card.get("rarity", "Common"), 0) / 2
+	var base: int = Cfg.RARITY_COSTS.get(card.get("rarity", "Common"), 0) / 2
+	return int(base * (1.0 + Profile.bonus("sell_value_bonus")))
 
 
 func sell_price_for_item(item: Dictionary) -> int:
 	@warning_ignore("integer_division")
-	return int(item.get("cost", 0)) / 2
+	var base: int = int(item.get("cost", 0)) / 2
+	return int(base * (1.0 + Profile.bonus("sell_value_bonus")))
 
 
 func sell_card(index: int) -> void:
@@ -1519,9 +2086,113 @@ func use_item(index: int) -> bool:
 			post_message("Tap a column to clear!", Cfg.WHITE, 2.0)
 			Audio.play(Cfg.SFX_ITEM_BOMB)
 		"Small Bomb":
-			pending_effect = {"type": "area_bomb", "size": 3, "source": "item"}
-			post_message("Tap an area to bomb (3x3)!", Cfg.WHITE, 2.0)
+			var size: int = 3 + int(passive.get("bomb_size_bonus", 0))
+			pending_effect = {"type": "area_bomb", "size": size, "source": "item"}
+			post_message("Tap an area to bomb (%dx%d)!" % [size, size], Cfg.WHITE, 2.0)
 			Audio.play(Cfg.SFX_ITEM_BOMB)
+		"Meteor Shard":
+			# Keyed by name, not by size, so Bigger Blast cannot promote a Small
+			# Bomb into a meteor and steal the score kicker.
+			pending_effect = {
+				"type": "area_bomb", "size": 5 + int(passive.get("bomb_size_bonus", 0)),
+				"source": "item", "item": "Meteor Shard",
+			}
+			post_message("Tap an area for the meteor!", Cfg.WHITE, 2.0)
+			Audio.play(Cfg.SFX_ITEM_BOMB, 1.15)
+		"Soul Bomb":
+			pending_effect = {"type": "cross_clear", "source": "item"}
+			post_message("Tap a cell for the cross blast!", Cfg.WHITE, 2.0)
+			Audio.play(Cfg.SFX_ITEM_BOMB, 1.1)
+		"Time Crystal":
+			bonus_sets_this_round += 1
+			recalculate_passives()
+			post_message("Time Crystal: +1 set this round!", Cfg.CYAN, 2.0)
+			Audio.play(Cfg.SFX_CARD_MET)
+			Juice.flash(Cfg.CYAN, 0.25, 0.3)
+		"Hourglass of Ash":
+			# Refreshes to 3 rather than stacking.
+			combo_shield = 3
+			post_message("Hourglass of Ash: 3 placements shielded!", Cfg.CYAN, 2.0)
+			Audio.play(Cfg.SFX_CARD_MET)
+			Juice.flash(Cfg.CYAN, 0.2, 0.25)
+			combo_changed.emit(combo_streak, combo_miss_allowance)
+		"Hell Magnet":
+			if not _gravity_compact():
+				post_message("Nothing to pull down.", Cfg.RED, 1.0)
+				return false
+			Audio.play(Cfg.SFX_OBSTACLE_CONVERT)
+			Juice.shake(0.35, 30)
+			post_message("Hell Magnet: board compacted!", Cfg.CYAN, 1.5)
+			check_and_clear_lines()
+			board_changed.emit()
+			check_game_over("No valid moves")
+		"Holy Water":
+			var washed: Array = []
+			for r in grid_rows:
+				for c in grid_cols:
+					if is_obstacle(board[r][c]):
+						washed.append(Vector2i(r, c))
+						board[r][c] = 0
+			if washed.is_empty():
+				post_message("Nothing to cleanse.", Cfg.RED, 1.0)
+				return false
+			obstacles_on_board = false
+			cells_cleared.emit(washed, "vanish")
+			Audio.play(Cfg.SFX_OBSTACLE_CONVERT)
+			Juice.flash(Cfg.WHITE, 0.3, 0.35)
+			post_message("Holy Water cleanses %d obstacle(s)!" % washed.size(), Cfg.WHITE, 1.5)
+			check_and_clear_lines()
+			board_changed.emit()
+		"Mason's Chisel":
+			# Mirrors the conversion _advance_round() runs when a boss round ends:
+			# Holy Water empties those cells, the Chisel keeps them as material.
+			var crumbled := 0
+			for r in grid_rows:
+				for c in grid_cols:
+					if is_obstacle(board[r][c]):
+						board[r][c] = _make_block(Cfg.GRAY)
+						crumbled += 1
+			if crumbled == 0:
+				post_message("No obstacles to work.", Cfg.RED, 1.0)
+				return false
+			obstacles_on_board = false
+			Audio.play(Cfg.SFX_OBSTACLE_CONVERT)
+			Juice.shake(0.3, 22)
+			post_message("Mason's Chisel: %d obstacle(s) crumble!" % crumbled, Cfg.WHITE, 1.5)
+			check_and_clear_lines()
+			board_changed.emit()
+		"Chaos Dice":
+			# The payout is capped by hand size, so it can never out-earn its cost.
+			var rerolled := hand.size()
+			if rerolled == 0:
+				post_message("No hand to reroll.", Cfg.RED, 1.0)
+				return false
+			for i in rerolled:
+				hand[i] = Cfg.random_shape()
+			money += rerolled
+			selected_index = 0
+			post_message("Chaos Dice: hand rerolled, +$%d!" % rerolled, Cfg.MONEY_COLOR, 1.5)
+			Audio.play(Cfg.SFX_SHOP_REROLL)
+			Juice.shake(0.2, 15)
+			hand_changed.emit()
+			stats_changed.emit()
+			update_potential_clear_highlight()
+			check_game_over("No valid moves")
+		"Lucifer's Whistle":
+			if not boss_active:
+				post_message("No boss to banish.", Cfg.RED, 1.0)
+				return false
+			boss_active = false
+			boss_warning_active = false
+			boss_next_line = -1
+			# place_piece() checks boss_laser_line after the dust settles and would
+			# otherwise fire an orphaned shot from a boss that is already gone.
+			boss_laser_line = -1
+			boss_grace_left = 0
+			post_message("Lucifer's Whistle: the Giga Boss withdraws!", Cfg.GREEN, 2.5)
+			Audio.play(Cfg.SFX_BOSS_APPEAR, 0.6)
+			Juice.flash(Cfg.GREEN, 0.35, 0.4)
+			boss_state_changed.emit()
 		"Magic Ball":
 			conjure_active = true
 			consumed = false
@@ -1535,7 +2206,7 @@ func use_item(index: int) -> bool:
 			post_message("Unknown item: %s" % item["name"], Cfg.RED, 1.0)
 			return false
 
-	if consumed and Cards.item(item["name"]).get("consumable", true):
+	if consumed and Cards.item(item["name"]).get("consumable", true) and not mirror_soul_saves():
 		items.remove_at(index)
 		inventory_changed.emit()
 	pending_effect_changed.emit()
@@ -1558,10 +2229,13 @@ func conjure_piece(shape_name: String) -> void:
 	post_message("Conjured %s!" % shape_name, Cfg.GREEN, 1.5)
 	conjure_active = false
 	pending_effect = {}
-	for i in items.size():
-		if items[i]["name"] == "Magic Ball":
-			items.remove_at(i)
-			break
+	# Magic Ball is spent on the pick, not on the use, so its Mirror Soul roll
+	# has to happen here or it would be the one item the card ignored.
+	if not mirror_soul_saves():
+		for i in items.size():
+			if items[i]["name"] == "Magic Ball":
+				items.remove_at(i)
+				break
 	inventory_changed.emit()
 	hand_changed.emit()
 	pending_effect_changed.emit()
@@ -1570,6 +2244,8 @@ func conjure_piece(shape_name: String) -> void:
 
 
 func apply_clear_effect(clear_type: String, r: int, c: int, size := 3, from_card := false) -> void:
+	# Captured up front: pending_effect is wiped before the branches finish with it.
+	var src_item: String = pending_effect.get("item", "")
 	var hit: Array = []
 	var sfx := Cfg.SFX_ITEM_BOMB
 
@@ -1603,6 +2279,27 @@ func apply_clear_effect(clear_type: String, r: int, c: int, size := 3, from_card
 						hit.append(Vector2i(rr, cc))
 						board[rr][cc] = 0
 			post_message("%dx%d Area bombed!" % [size, size], Cfg.WHITE, 1.5)
+			if src_item == "Meteor Shard":
+				score += 300
+				floating_score.emit("+300 METEOR", "score")
+				Juice.shake(0.5, 45)
+				Juice.flash(Cfg.ORANGE, 0.3, 0.4)
+				stats_changed.emit()
+		"cross_clear":
+			if r < 0 or r >= grid_rows or c < 0 or c >= grid_cols:
+				return
+			# Deduped, or the intersection cell would be listed twice.
+			var found: Dictionary = {}
+			for cc in grid_cols:
+				if is_clearable(board[r][cc]):
+					found[Vector2i(r, cc)] = true
+			for rr in grid_rows:
+				if is_clearable(board[rr][c]):
+					found[Vector2i(rr, c)] = true
+			for cell_pos in found:
+				board[cell_pos.x][cell_pos.y] = 0
+				hit.append(cell_pos)
+			post_message("Cross blast at row %d, col %d!" % [r + 1, c + 1], Cfg.WHITE, 1.5)
 		"single_block_remove":
 			sfx = Cfg.SFX_ITEM_ERASE
 			if r < 0 or r >= grid_rows or c < 0 or c >= grid_cols:
@@ -1664,6 +2361,40 @@ func activate_card(index: int, double_click := false) -> void:
 			card_triggered.emit("Shape Shifter")
 			hand_changed.emit()
 			update_potential_clear_highlight()
+
+		"Duplicator":
+			if get_state(card, "used_this_round", false):
+				post_message("Duplicator (this card) used this round.", Cfg.RED, 1.0)
+				return
+			if hand.is_empty() or selected_index >= hand.size():
+				post_message("No piece to duplicate!", Cfg.RED, 1.0)
+				return
+			# copy_shape is mandatory: without it a later Barrel roll would rotate
+			# both copies at once.
+			hand.append(Cfg.copy_shape(hand[selected_index]))
+			set_state(card, "used_this_round", true)
+			post_message("Duplicated %s!" % hand[selected_index]["name"], Cfg.YELLOW, 1.0)
+			Audio.play(Cfg.SFX_CARD_MET)
+			card_triggered.emit("Duplicator")
+			hand_changed.emit()
+			update_potential_clear_highlight()
+
+		"Time Shard":
+			var ready_round: int = int(get_state(card, "shard_ready_round", 0))
+			if round_count < ready_round:
+				post_message("Time Shard recharges on round %d." % ready_round, Cfg.RED, 1.5)
+				return
+			# init_card_state() already IS the per-round reset, so replaying it on
+			# every other card is exactly what "rewind the cooldowns" means.
+			for i in cards.size():
+				if i != index:
+					init_card_state(cards[i])
+			set_state(card, "shard_ready_round", round_count + 3)
+			post_message("TIME SHARD: cooldowns rewound!", Cfg.CYAN, 2.0)
+			Audio.play(Cfg.SFX_CARD_MET)
+			card_triggered.emit("Time Shard")
+			Juice.flash(Cfg.CYAN, 0.3, 0.35)
+			inventory_changed.emit()
 
 		"Soul Stamp":
 			if not double_click:
@@ -1778,10 +2509,34 @@ func set_merlin_piece(index: int, shape_name: String) -> void:
 
 
 # ==========================================================================
-#  Pocket Dimension
+#  Pocket Dimension / free hand manipulation
 # ==========================================================================
+## The stash is open to the card holder and to anyone carrying Pocket of Sin.
+func can_pocket() -> bool:
+	return has_card("Pocket Dimension") or Profile.bonus("free_pocket") > 0.0
+
+
+## Hellforged Hands: rotate a held piece with no card, no cooldown, no limit.
+func free_rotate_available() -> bool:
+	return Profile.bonus("free_rotate") > 0.0
+
+
+func rotate_hand_piece(index: int) -> bool:
+	if not free_rotate_available():
+		return false
+	if index < 0 or index >= hand.size():
+		return false
+	var shape: Dictionary = hand[index]
+	shape["coords"] = Cfg.rotate_shape_coords(shape["coords"])
+	post_message("%s rotated." % shape.get("name", "Piece"), Cfg.YELLOW, 1.0)
+	Audio.play(Cfg.SFX_CARD_MET, 0.8)
+	hand_changed.emit()
+	update_potential_clear_highlight()
+	return true
+
+
 func pocket_piece(index: int) -> void:
-	if not has_card("Pocket Dimension"):
+	if not can_pocket():
 		return
 	if index < 0 or index >= hand.size():
 		return
@@ -1803,7 +2558,7 @@ func pocket_piece(index: int) -> void:
 
 
 func unpocket_piece() -> void:
-	if pocketed_piece == null or not has_card("Pocket Dimension"):
+	if pocketed_piece == null or not can_pocket():
 		return
 	Audio.play(Cfg.SFX_POCKET)
 	hand.append(pocketed_piece)
@@ -1863,6 +2618,51 @@ func check_game_over(reason := "", force := false) -> void:
 		board_changed.emit()
 		return
 
+	# Phoenix resolves first: it costs nothing but itself, so the harsher bargains
+	# below stay in reserve as the true last-ditch saves.
+	var feather: Variant = find_card("Phoenix Feather")
+	if feather != null:
+		post_message("PHOENIX FEATHER BURNS!", Cfg.ORANGE, 3.0)
+		_wipe_board("Phoenix Feather")
+		cards.erase(feather)
+		Audio.play(Cfg.SFX_DEAL_WITH_DEATH)
+		Juice.flash(Cfg.ORANGE, 0.6, 0.8)
+		Juice.shake(0.7, 100)
+		recalculate_passives()
+		generate_hand()
+		inventory_changed.emit()
+		stats_changed.emit()
+		board_changed.emit()
+		return
+
+	if not second_skin_used and _has_perk("Second Skin Perk"):
+		second_skin_used = true
+		if not reason.is_empty():
+			post_message("%s triggered death, but..." % reason, Cfg.ORANGE, 1.5)
+		post_message("SECOND SKIN!", Cfg.GREEN, 3.0)
+		_wipe_board("Second Skin")
+		Audio.play(Cfg.SFX_DEAL_WITH_DEATH, 0.8)
+		Juice.flash(Cfg.GREEN, 0.5, 0.6)
+		Juice.shake(0.6, 80)
+		generate_hand()
+		board_changed.emit()
+		stats_changed.emit()
+		return
+
+	if not sin_revive_used and Profile.bonus("revive_once") > 0.0:
+		sin_revive_used = true
+		if not reason.is_empty():
+			post_message("%s triggered death, but..." % reason, Cfg.ORANGE, 1.5)
+		post_message("SECOND WIND!", Cfg.GREEN, 3.0)
+		_wipe_board("Second Wind")
+		Audio.play(Cfg.SFX_DEAL_WITH_DEATH, 0.8)
+		Juice.flash(Cfg.GREEN, 0.5, 0.6)
+		Juice.shake(0.6, 80)
+		generate_hand()
+		board_changed.emit()
+		stats_changed.emit()
+		return
+
 	var deal: Variant = find_card("Deal with Death")
 	if deal != null:
 		post_message("DEAL WITH DEATH!", Cfg.RED, 3.0)
@@ -1883,6 +2683,13 @@ func check_game_over(reason := "", force := false) -> void:
 	post_message("GAME OVER!", Cfg.RED, 4.0)
 	SaveGame.submit_score(score)
 	SaveGame.delete_run()
+
+	# The run is the only thing that dies; the embers it earned outlive it.
+	# Kept on the session because the game-over screen mutes the message feed,
+	# so a toast here would be the one payout the player never sees.
+	last_run_embers = Profile.embers_for_run(score, round_count)
+	Profile.award_embers(last_run_embers)
+
 	Audio.play(Cfg.SFX_LOSE)
 	Audio.play_music(Cfg.MUSIC_LOBBY)
 	Juice.set_combo(0)
@@ -1961,18 +2768,25 @@ func to_save_dict() -> Dictionary:
 	var hand_out: Array = []
 	for shape in hand:
 		hand_out.append(_serialize_shape(shape))
+	var next_out: Array = []
+	for shape in next_hand:
+		next_out.append(_serialize_shape(shape))
 	return {
 		"version": 1,
 		"grid_rows": grid_rows, "grid_cols": grid_cols, "board": board_out,
-		"hand": hand_out, "selected_index": selected_index,
+		"hand": hand_out, "next_hand": next_out, "selected_index": selected_index,
 		"pocketed": _serialize_shape(pocketed_piece) if pocketed_piece != null else null,
 		"score": score, "money": money, "round_count": round_count,
 		"sets_placed_in_round": sets_placed_in_round,
+		"bonus_sets_this_round": bonus_sets_this_round,
 		"cards": cards, "items": items, "perks": perks, "contracts": contracts,
 		"combo_streak": combo_streak, "combo_miss_allowance": combo_miss_allowance,
+		"combo_shield": combo_shield,
 		"obstacles_on_board": obstacles_on_board,
+		"second_skin_used": second_skin_used, "sin_revive_used": sin_revive_used,
 		"boss_active": boss_active, "boss_next_line": boss_next_line,
 		"boss_next_is_row": boss_next_is_row, "boss_warning_active": boss_warning_active,
+		"boss_grace_left": boss_grace_left,
 	}
 
 
@@ -1994,6 +2808,11 @@ func from_save_dict(data: Dictionary) -> bool:
 		var shape := _deserialize_shape(raw)
 		if not shape.is_empty():
 			hand.append(shape)
+	next_hand = []
+	for raw_next in data.get("next_hand", []):
+		var preview := _deserialize_shape(raw_next)
+		if not preview.is_empty():
+			next_hand.append(preview)
 	selected_index = clampi(int(data.get("selected_index", 0)), 0, maxi(0, hand.size() - 1))
 	var pocket: Variant = data.get("pocketed", null)
 	pocketed_piece = _deserialize_shape(pocket) if pocket is Dictionary else null
@@ -2002,16 +2821,23 @@ func from_save_dict(data: Dictionary) -> bool:
 	money = int(data.get("money", Cfg.STARTING_MONEY))
 	round_count = int(data.get("round_count", 1))
 	sets_placed_in_round = int(data.get("sets_placed_in_round", 1))
+	# Read before recalculate_passives(), which folds it into sets_per_round_target.
+	bonus_sets_this_round = int(data.get("bonus_sets_this_round", 0))
 	cards = _revive_list(data.get("cards", []))
 	items = _revive_list(data.get("items", []))
 	perks = _revive_list(data.get("perks", []))
 	contracts = _revive_list(data.get("contracts", []))
 	combo_streak = int(data.get("combo_streak", 0))
+	combo_shield = maxi(0, int(data.get("combo_shield", 0)))
 	obstacles_on_board = bool(data.get("obstacles_on_board", false))
+	# Reloading a run must not hand back a save the run has already spent.
+	second_skin_used = bool(data.get("second_skin_used", false))
+	sin_revive_used = bool(data.get("sin_revive_used", false))
 	boss_active = bool(data.get("boss_active", false))
 	boss_next_line = int(data.get("boss_next_line", -1))
 	boss_next_is_row = bool(data.get("boss_next_is_row", false))
 	boss_warning_active = bool(data.get("boss_warning_active", false))
+	boss_grace_left = maxi(0, int(data.get("boss_grace_left", 0)))
 
 	recalculate_passives()
 	combo_miss_allowance = clampi(int(data.get("combo_miss_allowance", combo_miss_allowance)),

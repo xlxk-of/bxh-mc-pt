@@ -6,6 +6,7 @@ extends Control
 signal start_run
 signal continue_run
 signal open_settings
+signal open_sin_tree
 signal quit_game
 
 const BTN_BASE_W := 260.0
@@ -91,18 +92,15 @@ func _rebuild() -> void:
 
 	var defs: Array = []
 	if has_saved_run:
-		defs = [
-			{"key": "continue", "label": "Continue Run", "accent": Cfg.ACCENT_GOOD},
-			{"key": "new", "label": "New Run", "accent": Cfg.ACCENT_PRIMARY},
-			{"key": "settings", "label": "Settings", "accent": Cfg.PANEL_ACCENT},
-			{"key": "quit", "label": "Quit Game", "accent": Cfg.ACCENT_DANGER},
-		]
-	else:
-		defs = [
-			{"key": "new", "label": "Start Run", "accent": Cfg.ACCENT_PRIMARY},
-			{"key": "settings", "label": "Settings", "accent": Cfg.PANEL_ACCENT},
-			{"key": "quit", "label": "Quit Game", "accent": Cfg.ACCENT_DANGER},
-		]
+		defs.append({"key": "continue", "label": "Continue Run", "accent": Cfg.ACCENT_GOOD})
+	defs.append({"key": "new", "label": "New Run" if has_saved_run else "Start Run",
+		"accent": Cfg.ACCENT_PRIMARY})
+	# The Sin Tree is the only screen with a number attached, and that number is
+	# the reason to open it, so it goes on the button.
+	defs.append({"key": "sin_tree", "accent": Cfg.MAGENTA,
+		"label": "Sin Tree  (%d)" % Profile.embers if Profile.embers > 0 else "Sin Tree"})
+	defs.append({"key": "settings", "label": "Settings", "accent": Cfg.PANEL_ACCENT})
+	defs.append({"key": "quit", "label": "Quit Game", "accent": Cfg.ACCENT_DANGER})
 
 	var list := VBoxContainer.new()
 	list.add_theme_constant_override("separation", 12)
@@ -142,6 +140,7 @@ func _on_pressed(key: String) -> void:
 		"continue": continue_run.emit()
 		"new": start_run.emit()
 		"settings": open_settings.emit()
+		"sin_tree": open_sin_tree.emit()
 		"quit": quit_game.emit()
 
 

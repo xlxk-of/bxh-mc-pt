@@ -75,6 +75,60 @@ const CARDS: Array[Dictionary] = [
 	{"name": "Barrel", "asset": "barrel", "rarity": "Ultra", "unique": false, "mimicable": true,
 	 "activation": "click",
 	 "description": "Rotate a piece of your choice once to the right (1/rnd)."},
+	{"name": "Holy Bomb", "asset": "holy_bomb", "rarity": "Rare", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) Marks a 3x3 zone; at the next set it fills with holy blocks."},
+	{"name": "Duplicator", "asset": "duplicator", "rarity": "Ultra", "unique": false, "mimicable": true,
+	 "activation": "click",
+	 "description": "(Tap Card) Copy the selected piece into your hand (1/rnd)."},
+	{"name": "Magma Veins", "asset": "magma_veins", "rarity": "Rare", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) Line clears melt adjacent obstacles: +150 points each."},
+	{"name": "Soul Siphon", "asset": "soul_siphon", "rarity": "Rare", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) Every 5th combo step siphons +$3."},
+	{"name": "Crown of Greed", "asset": "crown_of_greed", "rarity": "Ultra", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) +$1 for every line you clear."},
+	{"name": "Momentum", "asset": "momentum", "rarity": "Ultra", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(On Place) Clearing 3+ lines at once surges your combo by +5."},
+	{"name": "Infernal Engine", "asset": "infernal_engine", "rarity": "Ultra", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) Every 5 clearing placements: +0.5x score mult for the round."},
+	{"name": "Hell's Bell", "asset": "hells_bell", "rarity": "Ultra", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) Every 10th line cleared rings the Bell: row+column cross blast."},
+	{"name": "Frostbrand", "asset": "frostbrand", "rarity": "Rare", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) 40% chance the Giga Boss freezes and fumbles its shot."},
+	{"name": "Gravity Well", "asset": "gravity_well", "rarity": "Ultra", "unique": true, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) After every set, all blocks slam down and compact."},
+	{"name": "Phoenix Feather", "asset": "phoenix_feather", "rarity": "Exotic", "unique": true, "mimicable": false,
+	 "activation": "passive",
+	 "description": "(Passive) On game over: board clears, hand refreshes, the feather burns."},
+	{"name": "Mirror Soul", "asset": "mirror_soul", "rarity": "Exotic", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) 35% chance an item is not consumed when used."},
+	{"name": "Demon Pact", "asset": "demon_pact", "rarity": "Cosmic", "unique": true, "mimicable": false,
+	 "activation": "passive",
+	 "description": "(Passive) All score doubled. The Giga Boss never rests. Sign here."},
+	{"name": "Time Shard", "asset": "time_shard", "rarity": "Exotic", "unique": true, "mimicable": false,
+	 "activation": "click",
+	 "description": "(Tap Card) Refresh every other card's once-per-round use (1 per 3 rnd)."},
+	{"name": "Ledger of Souls", "asset": "ledger_of_souls", "rarity": "Common", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) Each round: +$1 for every $10 you hold (max $8)."},
+	{"name": "Iron Lung", "asset": "iron_lung", "rarity": "Common", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) The first miss each round costs no combo chance."},
+	{"name": "Fool's Gold", "asset": "fools_gold", "rarity": "Common", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) The first line clear each round scores x3."},
+	{"name": "Second Wind", "asset": "second_wind", "rarity": "Rare", "unique": false, "mimicable": true,
+	 "activation": "passive",
+	 "description": "(Passive) Once per round, a lost combo keeps half its streak."},
 ]
 
 const ITEMS: Array[Dictionary] = [
@@ -88,6 +142,24 @@ const ITEMS: Array[Dictionary] = [
 	 "description": "Select any standard piece to add to your set."},
 	{"name": "Eraser", "asset": "eraser", "cost": 3, "consumable": true, "rarity": "Common",
 	 "description": "Remove 1 chosen non-obstacle block."},
+	{"name": "Meteor Shard", "asset": "meteor_shard", "cost": 9, "consumable": true, "rarity": "Rare",
+	 "description": "Call down a meteor: 5x5 blast plus 300 points."},
+	{"name": "Time Crystal", "asset": "time_crystal", "cost": 12, "consumable": true, "rarity": "Ultra",
+	 "description": "+1 extra set this round."},
+	{"name": "Hell Magnet", "asset": "hell_magnet", "cost": 7, "consumable": true, "rarity": "Rare",
+	 "description": "All blocks slam downward and compact."},
+	{"name": "Holy Water", "asset": "holy_water", "cost": 10, "consumable": true, "rarity": "Ultra",
+	 "description": "Cleanse every obstacle from the board."},
+	{"name": "Soul Bomb", "asset": "soul_bomb", "cost": 11, "consumable": true, "rarity": "Ultra",
+	 "description": "Detonate a full row and column cross."},
+	{"name": "Chaos Dice", "asset": "chaos_dice", "cost": 5, "consumable": true, "rarity": "Common",
+	 "description": "Reroll your whole hand and pocket $1 per piece."},
+	{"name": "Mason's Chisel", "asset": "masons_chisel", "cost": 6, "consumable": true, "rarity": "Rare",
+	 "description": "Every obstacle crumbles into a normal, clearable block."},
+	{"name": "Hourglass of Ash", "asset": "hourglass_of_ash", "cost": 8, "consumable": true, "rarity": "Rare",
+	 "description": "Your next 3 placements cannot break the combo."},
+	{"name": "Lucifer's Whistle", "asset": "lucifers_whistle", "cost": 12, "consumable": true, "rarity": "Ultra",
+	 "description": "The Giga Boss loses interest and leaves for this round."},
 ]
 
 const PERKS: Array[Dictionary] = [
@@ -99,6 +171,22 @@ const PERKS: Array[Dictionary] = [
 	 "description": "+1 Card Slot (max 5 extra)"},
 	{"name": "Extra Item Belt", "rarity": "Rare", "stackable": true,
 	 "description": "+1 Item Slot (max 3 extra)"},
+	{"name": "Deep Breath Perk", "rarity": "Common", "stackable": true,
+	 "description": "+1 combo chance (max 3)"},
+	{"name": "Fat Wallet Perk", "rarity": "Common", "stackable": true,
+	 "description": "+$3 each round (max 3)"},
+	{"name": "Haggler Perk", "rarity": "Common", "stackable": true,
+	 "description": "-10% shop prices (max 3, stacks with Thrifting)"},
+	{"name": "Bigger Blast Perk", "rarity": "Rare", "stackable": true,
+	 "description": "+2 cells to bomb items (max 2)"},
+	{"name": "Cheap Rerolls Perk", "rarity": "Rare", "stackable": false,
+	 "description": "Shop rerolls never cost more than $3"},
+	{"name": "Sturdy Frame Perk", "rarity": "Rare", "stackable": true,
+	 "description": "-1 obstacle per boss round (max 2)"},
+	{"name": "Golden Streak Perk", "rarity": "Ultra", "stackable": true,
+	 "description": "Combo multiplier counts 50% higher (max 2)"},
+	{"name": "Second Skin Perk", "rarity": "Exotic", "stackable": false,
+	 "description": "Once per run, death wipes the board instead"},
 ]
 
 const CONTRACTS: Array[Dictionary] = [
@@ -178,15 +266,21 @@ func asset_key(entry_name: String) -> String:
 
 
 ## Cached PackedScene for a card/item 3D model, or null when there is none.
+##
+## Sculpted entries ship a .glb exported from Blender. Entries added since then
+## are built in-engine out of primitive meshes and live as .tscn beside them, so
+## both kinds are looked up the same way and CardIcon cannot tell them apart.
 func model_scene(key: String) -> PackedScene:
 	if key.is_empty():
 		return null
 	if _model_cache.has(key):
 		return _model_cache[key]
-	var path := MODEL_DIR + key + "/" + key + ".glb"
 	var scene: PackedScene = null
-	if ResourceLoader.exists(path):
-		scene = load(path)
+	for ext: String in [".glb", ".tscn"]:
+		var path := MODEL_DIR + key + "/" + key + ext
+		if ResourceLoader.exists(path):
+			scene = load(path)
+			break
 	_model_cache[key] = scene
 	return scene
 

@@ -91,6 +91,24 @@ func _ready() -> void:
 	main._modal.close()
 	await _settle(20)
 
+	# The Sin Tree, in its seven-across desktop arrangement. Half the tree is
+	# bought so the shot shows owned, affordable, unaffordable and hidden nodes
+	# side by side rather than seven identical locked columns.
+	Profile.reset_tree()
+	Profile.embers = 0
+	Profile.award_embers(600)
+	for entry: Dictionary in SinTreeData.NODES:
+		if int(entry.get("tier", 1)) <= 2:
+			Profile.buy(entry["id"])
+	main._open_sin_tree()
+	await _settle(50)
+	await _shot("12_sin_tree")
+	main._modal.close()
+	await _settle(20)
+	Profile.reset_tree()
+	Profile.embers = 0
+	Profile.save_profile()
+
 	# Portrait / phone layout.
 	DisplayServer.window_set_size(Vector2i(560, 980))
 	await _settle(60)

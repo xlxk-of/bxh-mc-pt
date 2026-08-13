@@ -1,0 +1,131 @@
+[gd_scene load_steps=12 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tarnished"]
+albedo_color = Color(0.6, 0.48, 0.18, 1)
+metallic = 0.45
+metallic_specular = 0.4
+roughness = 0.55
+emission_enabled = true
+emission = Color(0.18, 0.13, 0.03, 1)
+emission_energy_multiplier = 0.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spike"]
+albedo_color = Color(0.82, 0.65, 0.26, 1)
+metallic = 0.45
+metallic_specular = 0.6
+roughness = 0.42
+emission_enabled = true
+emission = Color(0.22, 0.16, 0.04, 1)
+emission_energy_multiplier = 0.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ruby"]
+albedo_color = Color(0.9, 0.06, 0.13, 1)
+metallic = 0.15
+roughness = 0.15
+emission_enabled = true
+emission = Color(0.85, 0.03, 0.08, 1)
+emission_energy_multiplier = 1.1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_emerald"]
+albedo_color = Color(0.12, 0.85, 0.32, 1)
+metallic = 0.15
+roughness = 0.15
+emission_enabled = true
+emission = Color(0.06, 0.8, 0.22, 1)
+emission_energy_multiplier = 0.9
+
+[sub_resource type="TorusMesh" id="TorusMesh_band"]
+material = SubResource("StandardMaterial3D_tarnished")
+inner_radius = 0.26
+outer_radius = 0.33
+rings = 40
+ring_segments = 16
+
+[sub_resource type="TorusMesh" id="TorusMesh_base"]
+material = SubResource("StandardMaterial3D_tarnished")
+inner_radius = 0.275
+outer_radius = 0.335
+rings = 36
+ring_segments = 12
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_spike_tall"]
+material = SubResource("StandardMaterial3D_spike")
+top_radius = 0.022
+bottom_radius = 0.105
+height = 0.4
+radial_segments = 4
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_spike_mid"]
+material = SubResource("StandardMaterial3D_spike")
+top_radius = 0.02
+bottom_radius = 0.095
+height = 0.32
+radial_segments = 4
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_spike_low"]
+material = SubResource("StandardMaterial3D_spike")
+top_radius = 0.018
+bottom_radius = 0.085
+height = 0.25
+radial_segments = 4
+
+[sub_resource type="SphereMesh" id="SphereMesh_ruby"]
+material = SubResource("StandardMaterial3D_ruby")
+radius = 0.085
+height = 0.17
+radial_segments = 20
+rings = 10
+
+[sub_resource type="SphereMesh" id="SphereMesh_emerald"]
+material = SubResource("StandardMaterial3D_emerald")
+radius = 0.062
+height = 0.124
+radial_segments = 16
+rings = 8
+
+[node name="CrownOfGreed" type="Node3D"]
+
+[node name="Band" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.14, 0)
+mesh = SubResource("TorusMesh_band")
+
+[node name="BaseRing" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.195, 0)
+mesh = SubResource("TorusMesh_base")
+
+[node name="SpikeFront" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.08, 0.295)
+rotation_degrees = Vector3(10, 0, 0)
+mesh = SubResource("CylinderMesh_spike_tall")
+
+[node name="SpikeRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.2806, 0.04, 0.0912)
+rotation_degrees = Vector3(10, 72, 0)
+mesh = SubResource("CylinderMesh_spike_mid")
+
+[node name="SpikeLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.2806, 0.04, 0.0912)
+rotation_degrees = Vector3(10, -72, 0)
+mesh = SubResource("CylinderMesh_spike_mid")
+
+[node name="SpikeBackRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.1734, 0.005, -0.2387)
+rotation_degrees = Vector3(10, 144, 0)
+mesh = SubResource("CylinderMesh_spike_low")
+
+[node name="SpikeBackLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.1734, 0.005, -0.2387)
+rotation_degrees = Vector3(10, -144, 0)
+mesh = SubResource("CylinderMesh_spike_low")
+
+[node name="Ruby" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.315, 0.343)
+mesh = SubResource("SphereMesh_ruby")
+
+[node name="EmeraldRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.318, 0.228, 0.104)
+mesh = SubResource("SphereMesh_emerald")
+
+[node name="EmeraldLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.318, 0.228, 0.104)
+mesh = SubResource("SphereMesh_emerald")

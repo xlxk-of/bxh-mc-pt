@@ -1,0 +1,100 @@
+[gd_scene load_steps=12 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gold"]
+albedo_color = Color(0.95, 0.72, 0.26, 1)
+metallic = 0.45
+metallic_specular = 0.7
+roughness = 0.35
+emission_enabled = true
+emission = Color(0.42, 0.28, 0.06, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_brass"]
+albedo_color = Color(0.5, 0.37, 0.15, 1)
+metallic = 0.4
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wick"]
+albedo_color = Color(0.18, 0.15, 0.13, 1)
+metallic = 0.0
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_halo"]
+albedo_color = Color(1, 0.95, 0.72, 1)
+metallic = 0.2
+roughness = 0.3
+emission_enabled = true
+emission = Color(1, 0.85, 0.45, 1)
+emission_energy_multiplier = 1.1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cross"]
+albedo_color = Color(1, 0.98, 0.9, 1)
+metallic = 0.3
+roughness = 0.25
+emission_enabled = true
+emission = Color(1, 0.93, 0.7, 1)
+emission_energy_multiplier = 0.8
+
+[sub_resource type="SphereMesh" id="SphereMesh_body"]
+material = SubResource("StandardMaterial3D_gold")
+radius = 0.34
+height = 0.68
+radial_segments = 32
+rings = 16
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_collar"]
+material = SubResource("StandardMaterial3D_brass")
+top_radius = 0.12
+bottom_radius = 0.17
+height = 0.14
+radial_segments = 20
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_wick"]
+material = SubResource("StandardMaterial3D_wick")
+top_radius = 0.026
+bottom_radius = 0.034
+height = 0.2
+radial_segments = 10
+
+[sub_resource type="TorusMesh" id="TorusMesh_halo"]
+material = SubResource("StandardMaterial3D_halo")
+inner_radius = 0.19
+outer_radius = 0.24
+rings = 32
+ring_segments = 14
+
+[sub_resource type="BoxMesh" id="BoxMesh_cross_upright"]
+material = SubResource("StandardMaterial3D_cross")
+size = Vector3(0.065, 0.24, 0.1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_cross_arm"]
+material = SubResource("StandardMaterial3D_cross")
+size = Vector3(0.18, 0.065, 0.1)
+
+[node name="HolyBomb" type="Node3D"]
+
+[node name="Body" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.1, 0)
+mesh = SubResource("SphereMesh_body")
+
+[node name="FuseCollar" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.24, 0)
+mesh = SubResource("CylinderMesh_collar")
+
+[node name="Wick" type="MeshInstance3D" parent="."]
+position = Vector3(0.0375, 0.393, 0)
+rotation_degrees = Vector3(0, 0, -22)
+mesh = SubResource("CylinderMesh_wick")
+
+[node name="Halo" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.48, 0)
+rotation_degrees = Vector3(-14, 0, 6)
+mesh = SubResource("TorusMesh_halo")
+
+[node name="CrossUpright" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.08, 0.29)
+mesh = SubResource("BoxMesh_cross_upright")
+
+[node name="CrossArm" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.035, 0.29)
+mesh = SubResource("BoxMesh_cross_arm")

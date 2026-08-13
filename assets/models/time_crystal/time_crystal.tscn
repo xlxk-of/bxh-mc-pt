@@ -1,0 +1,140 @@
+[gd_scene load_steps=13 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_crystal"]
+transparency = 1
+albedo_color = Color(0.6, 0.9, 1, 0.52)
+metallic = 0.15
+roughness = 0.06
+rim_enabled = true
+rim = 0.8
+emission_enabled = true
+emission = Color(0.18, 0.62, 0.95, 1)
+emission_energy_multiplier = 3
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_frame"]
+albedo_color = Color(0.74, 0.78, 0.88, 1)
+metallic = 0.92
+roughness = 0.22
+emission_enabled = true
+emission = Color(0.22, 0.44, 0.72, 1)
+emission_energy_multiplier = 0.85
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_waist"]
+albedo_color = Color(0.72, 0.96, 1, 1)
+metallic = 0.3
+roughness = 0.1
+emission_enabled = true
+emission = Color(0.3, 0.88, 1, 1)
+emission_energy_multiplier = 2.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_grain"]
+albedo_color = Color(0.8, 0.98, 1, 1)
+metallic = 0.2
+roughness = 0.15
+emission_enabled = true
+emission = Color(0.38, 0.9, 1, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_bulb_top"]
+material = SubResource("StandardMaterial3D_crystal")
+top_radius = 0.32
+bottom_radius = 0.02
+height = 0.42
+radial_segments = 20
+rings = 1
+cap_bottom = false
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_bulb_bottom"]
+material = SubResource("StandardMaterial3D_crystal")
+top_radius = 0.02
+bottom_radius = 0.32
+height = 0.42
+radial_segments = 20
+rings = 1
+cap_top = false
+
+[sub_resource type="TorusMesh" id="TorusMesh_waist"]
+material = SubResource("StandardMaterial3D_waist")
+inner_radius = 0.028
+outer_radius = 0.075
+rings = 18
+ring_segments = 10
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_cap"]
+material = SubResource("StandardMaterial3D_frame")
+top_radius = 0.36
+bottom_radius = 0.36
+height = 0.06
+radial_segments = 20
+rings = 1
+
+[sub_resource type="BoxMesh" id="BoxMesh_pillar"]
+material = SubResource("StandardMaterial3D_frame")
+size = Vector3(0.05, 0.86, 0.05)
+
+[sub_resource type="SphereMesh" id="SphereMesh_grain_a"]
+material = SubResource("StandardMaterial3D_grain")
+radius = 0.05
+height = 0.1
+radial_segments = 8
+rings = 5
+
+[sub_resource type="SphereMesh" id="SphereMesh_grain_b"]
+material = SubResource("StandardMaterial3D_grain")
+radius = 0.04
+height = 0.08
+radial_segments = 8
+rings = 5
+
+[sub_resource type="SphereMesh" id="SphereMesh_grain_c"]
+material = SubResource("StandardMaterial3D_grain")
+radius = 0.032
+height = 0.064
+radial_segments = 8
+rings = 5
+
+[node name="TimeCrystal" type="Node3D"]
+
+[node name="BulbUpper" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.22, 0)
+mesh = SubResource("CylinderMesh_bulb_top")
+
+[node name="BulbLower" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.22, 0)
+mesh = SubResource("CylinderMesh_bulb_bottom")
+
+[node name="Waist" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("TorusMesh_waist")
+
+[node name="CapTop" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.46, 0)
+mesh = SubResource("CylinderMesh_cap")
+
+[node name="CapBottom" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.46, 0)
+mesh = SubResource("CylinderMesh_cap")
+
+[node name="PillarA" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.939693, 0, 0.34202, 0, 1, 0, -0.34202, 0, 0.939693, 0.102606, 0, 0.281908)
+mesh = SubResource("BoxMesh_pillar")
+
+[node name="PillarB" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.766044, 0, 0.642788, 0, 1, 0, -0.642788, 0, -0.766044, 0.192836, 0, -0.229813)
+mesh = SubResource("BoxMesh_pillar")
+
+[node name="PillarC" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.173648, 0, -0.984808, 0, 1, 0, 0.984808, 0, -0.173648, -0.295442, 0, -0.052094)
+mesh = SubResource("BoxMesh_pillar")
+
+[node name="GrainA" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.06, -0.3, 0.04)
+mesh = SubResource("SphereMesh_grain_a")
+
+[node name="GrainB" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.08, -0.35, -0.05)
+mesh = SubResource("SphereMesh_grain_b")
+
+[node name="GrainC" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.02, -0.24, -0.09)
+mesh = SubResource("SphereMesh_grain_c")

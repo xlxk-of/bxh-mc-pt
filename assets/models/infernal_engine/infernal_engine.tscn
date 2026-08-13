@@ -1,0 +1,135 @@
+[gd_scene load_steps=13 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_iron"]
+albedo_color = Color(0.3, 0.31, 0.35, 1)
+metallic = 0.35
+roughness = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_iron_dark"]
+albedo_color = Color(0.16, 0.16, 0.19, 1)
+metallic = 0.3
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_flywheel"]
+albedo_color = Color(0.26, 0.23, 0.24, 1)
+metallic = 0.4
+roughness = 0.35
+emission_enabled = true
+emission = Color(0.9, 0.3, 0.05, 1)
+emission_energy_multiplier = 0.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_brass"]
+albedo_color = Color(0.74, 0.53, 0.18, 1)
+metallic = 0.55
+roughness = 0.3
+emission_enabled = true
+emission = Color(0.5, 0.26, 0.03, 1)
+emission_energy_multiplier = 0.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ember"]
+albedo_color = Color(1, 0.42, 0.06, 1)
+metallic = 0
+roughness = 0.55
+emission_enabled = true
+emission = Color(1, 0.34, 0.04, 1)
+emission_energy_multiplier = 1.8
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_boiler"]
+material = SubResource("StandardMaterial3D_iron")
+top_radius = 0.255
+bottom_radius = 0.255
+height = 0.52
+radial_segments = 22
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_band"]
+material = SubResource("StandardMaterial3D_iron_dark")
+top_radius = 0.288
+bottom_radius = 0.288
+height = 0.055
+radial_segments = 22
+rings = 1
+
+[sub_resource type="SphereMesh" id="SphereMesh_dome"]
+material = SubResource("StandardMaterial3D_iron")
+radius = 0.25
+height = 0.2
+radial_segments = 22
+rings = 10
+
+[sub_resource type="BoxMesh" id="BoxMesh_slit"]
+material = SubResource("StandardMaterial3D_ember")
+size = Vector3(0.3, 0.05, 0.035)
+
+[sub_resource type="TorusMesh" id="TorusMesh_flywheel"]
+material = SubResource("StandardMaterial3D_flywheel")
+inner_radius = 0.2
+outer_radius = 0.3
+rings = 30
+ring_segments = 12
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_hub"]
+material = SubResource("StandardMaterial3D_brass")
+top_radius = 0.06
+bottom_radius = 0.06
+height = 0.2
+radial_segments = 14
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_rod"]
+material = SubResource("StandardMaterial3D_brass")
+top_radius = 0.028
+bottom_radius = 0.028
+height = 1
+radial_segments = 10
+rings = 1
+
+[node name="InfernalEngine" type="Node3D"]
+
+[node name="Boiler" type="MeshInstance3D" parent="."]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, -0.1, 0, 0)
+mesh = SubResource("CylinderMesh_boiler")
+
+[node name="BandFront" type="MeshInstance3D" parent="."]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0.1, 0, 0)
+mesh = SubResource("CylinderMesh_band")
+
+[node name="BandRear" type="MeshInstance3D" parent="."]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, -0.32, 0, 0)
+mesh = SubResource("CylinderMesh_band")
+
+[node name="RearDome" type="MeshInstance3D" parent="."]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, -0.36, 0, 0)
+mesh = SubResource("SphereMesh_dome")
+
+[node name="GlowSlit1" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.92718, 0.37461, 0, -0.37461, 0.92718, -0.13, 0.2318, -0.093652)
+mesh = SubResource("BoxMesh_slit")
+
+[node name="GlowSlit2" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.86603, -0.5, 0, 0.5, 0.86603, -0.13, 0.21651, 0.125)
+mesh = SubResource("BoxMesh_slit")
+
+[node name="GlowSlit3" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.20791, -0.97815, 0, 0.97815, 0.20791, -0.13, 0.051978, 0.24454)
+mesh = SubResource("BoxMesh_slit")
+
+[node name="Flywheel" type="MeshInstance3D" parent="."]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0.4, 0, 0)
+mesh = SubResource("TorusMesh_flywheel")
+
+[node name="Hub" type="MeshInstance3D" parent="."]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, 0.38, 0, 0)
+mesh = SubResource("CylinderMesh_hub")
+
+[node name="PistonRod1" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.5397, 0.23, 0.2976, 0.84186, 0.14745, 0.19078, 0, 0.10324, -0.93543, 0.255, 0.12287, 0.086036)
+mesh = SubResource("CylinderMesh_rod")
+
+[node name="PistonRod2" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.57853, 0.23, 0.21245, 0.81566, -0.16314, -0.15069, 0, 0.076071, -0.96548, 0.255, -0.13595, 0.063393)
+mesh = SubResource("CylinderMesh_rod")
+
+[node name="PistonRod3" type="MeshInstance3D" parent="."]
+transform = Transform3D(-0.068051, 0.23, -0.61254, 0.99768, 0.015688, -0.041781, 0, -0.17932, -0.78933, 0.255, 0.013073, -0.14943)
+mesh = SubResource("CylinderMesh_rod")

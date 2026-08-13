@@ -1,0 +1,122 @@
+[gd_scene load_steps=13 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ring_cold"]
+albedo_color = Color(0.16, 0.1, 0.2, 1)
+metallic = 0.35
+roughness = 0.3
+emission_enabled = true
+emission = Color(0.3, 0.14, 0.72, 1)
+emission_energy_multiplier = 0.7
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ring_warm"]
+albedo_color = Color(0.2, 0.09, 0.24, 1)
+metallic = 0.35
+roughness = 0.3
+emission_enabled = true
+emission = Color(0.55, 0.16, 0.9, 1)
+emission_energy_multiplier = 1.1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ring_hot"]
+albedo_color = Color(0.24, 0.08, 0.24, 1)
+metallic = 0.35
+roughness = 0.3
+emission_enabled = true
+emission = Color(0.85, 0.22, 0.85, 1)
+emission_energy_multiplier = 1.6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ring_core"]
+albedo_color = Color(0.28, 0.1, 0.24, 1)
+metallic = 0.35
+roughness = 0.3
+emission_enabled = true
+emission = Color(1, 0.35, 0.7, 1)
+emission_energy_multiplier = 2.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_singularity"]
+albedo_color = Color(0.02, 0.015, 0.04, 1)
+metallic = 0.5
+roughness = 0.08
+emission_enabled = true
+emission = Color(0.28, 0.06, 0.5, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_debris"]
+albedo_color = Color(0.34, 0.3, 0.42, 1)
+metallic = 0.3
+roughness = 0.5
+emission_enabled = true
+emission = Color(0.7, 0.3, 0.95, 1)
+emission_energy_multiplier = 1
+
+[sub_resource type="TorusMesh" id="TorusMesh_ring1"]
+material = SubResource("StandardMaterial3D_ring_cold")
+inner_radius = 0.465
+outer_radius = 0.56
+rings = 30
+ring_segments = 12
+
+[sub_resource type="TorusMesh" id="TorusMesh_ring2"]
+material = SubResource("StandardMaterial3D_ring_warm")
+inner_radius = 0.355
+outer_radius = 0.44
+rings = 30
+ring_segments = 12
+
+[sub_resource type="TorusMesh" id="TorusMesh_ring3"]
+material = SubResource("StandardMaterial3D_ring_hot")
+inner_radius = 0.25
+outer_radius = 0.32
+rings = 30
+ring_segments = 12
+
+[sub_resource type="TorusMesh" id="TorusMesh_ring4"]
+material = SubResource("StandardMaterial3D_ring_core")
+inner_radius = 0.155
+outer_radius = 0.21
+rings = 30
+ring_segments = 12
+
+[sub_resource type="SphereMesh" id="SphereMesh_singularity"]
+material = SubResource("StandardMaterial3D_singularity")
+radius = 0.15
+height = 0.3
+radial_segments = 24
+rings = 12
+
+[sub_resource type="BoxMesh" id="BoxMesh_debris"]
+material = SubResource("StandardMaterial3D_debris")
+size = Vector3(0.1, 0.1, 0.1)
+
+[node name="GravityWell" type="Node3D"]
+
+[node name="Ring1" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99863, 0.052336, 0, -0.052137, 0.99483, -0.087156, -0.0045614, 0.087036, 0.99619, 0, 0.32, 0)
+mesh = SubResource("TorusMesh_ring1")
+
+[node name="Ring2" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99452, -0.10453, 0, 0.10427, 0.9921, 0.069756, -0.0072915, -0.069374, 0.99756, 0, 0.17, 0)
+mesh = SubResource("TorusMesh_ring2")
+
+[node name="Ring3" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99756, -0.069756, 0, 0.069237, 0.99013, -0.12187, 0.0085012, 0.12157, 0.99255, 0, 0.02, 0)
+mesh = SubResource("TorusMesh_ring3")
+
+[node name="Ring4" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99255, 0.12187, 0, -0.1212, 0.98711, 0.10453, 0.012739, -0.10375, 0.99452, 0, -0.13, 0)
+mesh = SubResource("TorusMesh_ring4")
+
+[node name="Singularity" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.3, 0)
+mesh = SubResource("SphereMesh_singularity")
+
+[node name="Debris1" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.81025, 0.064131, 0.58256, 0.23457, 0.87543, -0.42262, -0.53709, 0.47908, 0.69427, 0.44166, 0.3, 0.16075)
+mesh = SubResource("BoxMesh_debris")
+
+[node name="Debris2" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.65676, -0.72002, 0.22414, 0.55667, 0.66341, 0.5, -0.50871, -0.20361, 0.83652, -0.31177, 0.14, 0.18)
+mesh = SubResource("BoxMesh_debris")
+
+[node name="Debris3" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.9459, 0.021706, -0.32374, -0.23672, 0.72855, -0.64279, 0.22191, 0.68465, 0.69427, 0.064705, -0.02, -0.24148)
+mesh = SubResource("BoxMesh_debris")

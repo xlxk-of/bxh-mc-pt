@@ -23,6 +23,7 @@ func _ready() -> void:
 	_test_column_collapse()
 	_test_all_cards()
 	_test_all_items()
+	_test_content_is_wired()
 	_test_contracts()
 	_test_save_round_trip()
 	_test_boss_cycle()
@@ -237,8 +238,9 @@ func _test_all_cards() -> void:
 		check(board_is_well_formed(s), "%s keeps board well-formed" % entry["name"])
 		check(Cards.asset_key(entry["name"]) != "", "%s has an asset key" % entry["name"])
 		var key: String = Cards.asset_key(entry["name"])
-		var model_path := Cards.MODEL_DIR + key + "/" + key + ".glb"
-		check(ResourceLoader.exists(model_path), "%s has a 3D model (%s)" % [entry["name"], key])
+		# Sculpted entries ship a .glb, later ones a primitive-mesh .tscn; asking
+		# Cards is the only check that does not care which.
+		check(Cards.model_scene(key) != null, "%s has a 3D model (%s)" % [entry["name"], key])
 
 		# Tap and double-tap must never throw, whatever the card is.
 		s.activate_card(0, false)
@@ -312,19 +314,25 @@ func _test_all_items() -> void:
 	print("- every item")
 	for entry in Cards.ITEMS:
 		var s := fresh()
+		# Give every item something to act on. Several of them deliberately
+		# refuse to be spent on a board where they would do nothing, so an empty
+		# board tests the refusal path rather than the effect.
+		_stock_board_for_items(s)
 		s.items.append(Cards.new_item_instance(entry["name"]))
 		check(s.use_item(0), "%s activates" % entry["name"])
 		var key: String = Cards.asset_key(entry["name"])
-		check(ResourceLoader.exists(Cards.MODEL_DIR + key + "/" + key + ".glb"),
-			"%s has a 3D model" % entry["name"])
-		if entry["name"] == "Magic Ball":
-			check(s.conjure_active, "Magic Ball opens the conjure picker")
+		check(Cards.model_scene(key) != null, "%s has a 3D model" % entry["name"])
+
+		# Items come in three shapes and the test has to tell them apart by what
+		# the item did, not by name, or every item added later needs a new case.
+		if s.conjure_active:
+			# Held until the player picks, so it is spent on the pick, not the use.
 			var hand_before := s.hand.size()
 			s.conjure_piece("O")
-			check(s.hand.size() == hand_before + 1, "Magic Ball adds a piece")
-			check(s.items.is_empty(), "Magic Ball is consumed on use")
-		else:
-			check(not s.pending_effect.is_empty(), "%s arms a targeted effect" % entry["name"])
+			check(s.hand.size() == hand_before + 1, "%s adds the conjured piece" % entry["name"])
+			check(not s.conjure_active, "%s closes the picker" % entry["name"])
+			check(s.items.is_empty(), "%s is consumed by the pick" % entry["name"])
+		elif not s.pending_effect.is_empty():
 			check(s.items.is_empty(), "%s is consumed" % entry["name"])
 			# Fill a patch so the effect has something to destroy.
 			for r in 4:
@@ -332,7 +340,65 @@ func _test_all_items() -> void:
 					s.board[r][c] = s._make_block(Cfg.BLUE)
 			s.apply_clear_effect(s.pending_effect["type"], 1, 1, int(s.pending_effect.get("size", 3)))
 			check(s.pending_effect.is_empty(), "%s clears its pending state" % entry["name"])
-			check(board_is_well_formed(s), "%s keeps board well-formed" % entry["name"])
+		else:
+			# Instant: no picker, no target, it just happened.
+			check(s.items.is_empty(), "%s is consumed" % entry["name"])
+		check(board_is_well_formed(s), "%s keeps board well-formed" % entry["name"])
+		check(s.money >= 0, "%s never drives money negative" % entry["name"])
+
+		# Whatever it did, the run must still be playable afterwards.
+		for _t in 8:
+			if not bot_greedy_move(s):
+				break
+		check(board_is_well_formed(s), "%s survives play" % entry["name"])
+
+	# An item that cannot do anything must say so and stay in the bag. Getting
+	# this wrong is how a player pays 10 gold for a message telling them nothing
+	# happened, so it is checked on the empty board every item refuses.
+	for entry in Cards.ITEMS:
+		var s := fresh()
+		s.items.append(Cards.new_item_instance(entry["name"]))
+		if s.use_item(0):
+			continue
+		check(s.items.size() == 1, "%s is kept when it is refused" % entry["name"])
+		check(s.pending_effect.is_empty(), "%s arms nothing when refused" % entry["name"])
+		check(not s.conjure_active, "%s opens no picker when refused" % entry["name"])
+
+
+## Every table entry must be named somewhere in the rules engine.
+##
+## The failure this catches is a content table that grew without the code that
+## makes it mean anything: the card buys, equips, shows its model and passes
+## every behavioural check above, because it does nothing at all. Reading the
+## source is crude, but a card that game_session.gd never mentions cannot
+## possibly have an effect, and nothing else notices.
+func _test_content_is_wired() -> void:
+	print("- every entry is wired up")
+	var file := FileAccess.open("res://scripts/core/game_session.gd", FileAccess.READ)
+	if file == null:
+		check(false, "game_session.gd is readable")
+		return
+	var src := file.get_as_text()
+	file.close()
+	for table in [Cards.CARDS, Cards.ITEMS, Cards.PERKS]:
+		for entry: Dictionary in table:
+			var entry_name: String = entry["name"]
+			check(src.contains('"%s"' % entry_name),
+				"%s is referenced in the rules engine" % entry_name)
+
+
+## A board with loose blocks, a couple of obstacles and an active boss, so every
+## item in the table has a legal target no matter what it does.
+func _stock_board_for_items(s: GameSession) -> void:
+	for c in s.grid_cols - 2:
+		s.board[s.grid_rows - 1][c] = s._make_block(Cfg.ORANGE)
+	for c in 3:
+		s.board[s.grid_rows - 4][c] = s._make_block(Cfg.CYAN)
+	s.board[1][1] = s._make_obstacle()
+	s.board[2][4] = s._make_obstacle()
+	s.obstacles_on_board = true
+	s.boss_active = true
+	s.board_changed.emit()
 
 
 func _test_contracts() -> void:

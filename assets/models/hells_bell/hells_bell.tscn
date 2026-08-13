@@ -1,0 +1,142 @@
+[gd_scene load_steps=15 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cast_iron"]
+albedo_color = Color(0.27, 0.27, 0.31, 1)
+metallic = 0.35
+roughness = 0.55
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hot_iron"]
+albedo_color = Color(0.4, 0.19, 0.13, 1)
+metallic = 0.3
+roughness = 0.5
+emission_enabled = true
+emission = Color(1, 0.28, 0.05, 1)
+emission_energy_multiplier = 0.7
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ember_core"]
+albedo_color = Color(0.7, 0.18, 0.04, 1)
+metallic = 0.2
+roughness = 0.5
+emission_enabled = true
+emission = Color(1, 0.35, 0.06, 1)
+emission_energy_multiplier = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_timber"]
+albedo_color = Color(0.26, 0.17, 0.12, 1)
+metallic = 0.05
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_brass"]
+albedo_color = Color(0.72, 0.5, 0.17, 1)
+metallic = 0.5
+roughness = 0.3
+emission_enabled = true
+emission = Color(0.45, 0.22, 0.03, 1)
+emission_energy_multiplier = 0.3
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_shell"]
+material = SubResource("StandardMaterial3D_cast_iron")
+top_radius = 0.13
+bottom_radius = 0.33
+height = 0.42
+radial_segments = 26
+rings = 1
+cap_bottom = false
+
+[sub_resource type="TorusMesh" id="TorusMesh_lip"]
+material = SubResource("StandardMaterial3D_hot_iron")
+inner_radius = 0.29
+outer_radius = 0.375
+rings = 30
+ring_segments = 12
+
+[sub_resource type="TorusMesh" id="TorusMesh_crown"]
+material = SubResource("StandardMaterial3D_cast_iron")
+inner_radius = 0.045
+outer_radius = 0.085
+rings = 20
+ring_segments = 10
+
+[sub_resource type="SphereMesh" id="SphereMesh_clapper"]
+material = SubResource("StandardMaterial3D_ember_core")
+radius = 0.1
+height = 0.2
+radial_segments = 20
+rings = 10
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_stem"]
+material = SubResource("StandardMaterial3D_cast_iron")
+top_radius = 0.016
+bottom_radius = 0.016
+height = 1
+radial_segments = 8
+rings = 1
+
+[sub_resource type="BoxMesh" id="BoxMesh_post"]
+material = SubResource("StandardMaterial3D_timber")
+size = Vector3(0.085, 0.66, 0.1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_beam"]
+material = SubResource("StandardMaterial3D_timber")
+size = Vector3(0.86, 0.095, 0.14)
+
+[sub_resource type="BoxMesh" id="BoxMesh_base"]
+material = SubResource("StandardMaterial3D_cast_iron")
+size = Vector3(0.9, 0.07, 0.26)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_bolt"]
+material = SubResource("StandardMaterial3D_brass")
+top_radius = 0.05
+bottom_radius = 0.05
+height = 0.1
+radial_segments = 12
+rings = 1
+
+[node name="HellsBell" type="Node3D"]
+
+[node name="Beam" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.32, 0)
+mesh = SubResource("BoxMesh_beam")
+
+[node name="PostLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99255, 0.12187, 0, -0.12187, 0.99255, 0, 0, 0, 1, -0.365, -0.06, 0)
+mesh = SubResource("BoxMesh_post")
+
+[node name="PostRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99255, -0.12187, 0, 0.12187, 0.99255, 0, 0, 0, 1, 0.365, -0.06, 0)
+mesh = SubResource("BoxMesh_post")
+
+[node name="BasePlate" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.43, 0)
+mesh = SubResource("BoxMesh_base")
+
+[node name="BoltLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -0.355, 0.32, 0.09)
+mesh = SubResource("CylinderMesh_bolt")
+
+[node name="BoltRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0.355, 0.32, 0.09)
+mesh = SubResource("CylinderMesh_bolt")
+
+[node name="Bell" type="Node3D" parent="."]
+transform = Transform3D(0.98769, 0.15643, 0, -0.15643, 0.98769, 0, 0, 0, 1, 0, 0.28, 0)
+
+[node name="Crown" type="MeshInstance3D" parent="Bell"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, -0.03, 0)
+mesh = SubResource("TorusMesh_crown")
+
+[node name="Shell" type="MeshInstance3D" parent="Bell"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.28, 0)
+mesh = SubResource("CylinderMesh_shell")
+
+[node name="Lip" type="MeshInstance3D" parent="Bell"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.485, 0)
+mesh = SubResource("TorusMesh_lip")
+
+[node name="ClapperStem" type="MeshInstance3D" parent="Bell"]
+transform = Transform3D(0.98201, 0.075, 0.0094982, 0.18885, -0.39, -0.049391, 0, 0.02, -0.99873, 0.0475, -0.335, 0.01)
+mesh = SubResource("CylinderMesh_stem")
+
+[node name="Clapper" type="MeshInstance3D" parent="Bell"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.085, -0.545, 0.02)
+mesh = SubResource("SphereMesh_clapper")

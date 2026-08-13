@@ -1,0 +1,93 @@
+[gd_scene load_steps=11 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_steel"]
+albedo_color = Color(0.46, 0.47, 0.52, 1)
+metallic = 0.55
+roughness = 0.42
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pole_red"]
+albedo_color = Color(0.85, 0.03, 0.03, 1)
+metallic = 0.2
+roughness = 0.5
+emission_enabled = true
+emission = Color(0.92, 0.02, 0.01, 1)
+emission_energy_multiplier = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pole_blue"]
+albedo_color = Color(0.08, 0.2, 0.92, 1)
+metallic = 0.2
+roughness = 0.5
+emission_enabled = true
+emission = Color(0.05, 0.22, 0.95, 1)
+emission_energy_multiplier = 1.1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_filing"]
+albedo_color = Color(0.36, 0.38, 0.42, 1)
+metallic = 0.5
+roughness = 0.55
+
+[sub_resource type="BoxMesh" id="BoxMesh_arm"]
+material = SubResource("StandardMaterial3D_steel")
+size = Vector3(0.2, 0.58, 0.3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_bend"]
+material = SubResource("StandardMaterial3D_steel")
+size = Vector3(0.2, 0.34, 0.3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_yoke"]
+material = SubResource("StandardMaterial3D_steel")
+size = Vector3(0.34, 0.2, 0.3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pole_red"]
+material = SubResource("StandardMaterial3D_pole_red")
+size = Vector3(0.22, 0.12, 0.32)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pole_blue"]
+material = SubResource("StandardMaterial3D_pole_blue")
+size = Vector3(0.22, 0.12, 0.32)
+
+[sub_resource type="BoxMesh" id="BoxMesh_filing"]
+material = SubResource("StandardMaterial3D_filing")
+size = Vector3(0.1, 0.1, 0.1)
+
+[node name="HellMagnet" type="Node3D"]
+
+[node name="ArmLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.91855, 0.145484, 0, -0.1444, 0.911703, -0.113338, -0.01773, 0.111943, 0.923068, -0.217, 0.174299, 0.021401)
+mesh = SubResource("BoxMesh_arm")
+
+[node name="ArmRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.91855, 0.145484, 0, -0.1444, 0.911703, -0.113338, -0.01773, 0.111943, 0.923068, 0.260646, 0.099212, 0.012182)
+mesh = SubResource("BoxMesh_arm")
+
+[node name="BendLeft" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.86823, -0.333282, 0, 0.330798, 0.861758, -0.113338, 0.040617, 0.105811, 0.923068, -0.203393, -0.182978, -0.022467)
+mesh = SubResource("BoxMesh_bend")
+
+[node name="BendRight" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.722746, 0.585268, 0, -0.580905, 0.717359, -0.113338, -0.071326, 0.088081, 0.923068, 0.13647, -0.236406, -0.029027)
+mesh = SubResource("BoxMesh_bend")
+
+[node name="Yoke" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.91855, 0.145484, 0, -0.1444, 0.911703, -0.113338, -0.01773, 0.111943, 0.923068, -0.052374, -0.328213, -0.0403)
+mesh = SubResource("BoxMesh_yoke")
+
+[node name="PoleNorth" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.91855, 0.145484, 0, -0.1444, 0.911703, -0.113338, -0.01773, 0.111943, 0.923068, -0.168991, 0.475162, 0.058343)
+mesh = SubResource("BoxMesh_pole_red")
+
+[node name="PoleSouth" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.91855, 0.145484, 0, -0.1444, 0.911703, -0.113338, -0.01773, 0.111943, 0.923068, 0.308655, 0.400074, 0.049123)
+mesh = SubResource("BoxMesh_pole_blue")
+
+[node name="FilingA" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.82901, -0.392342, 0.15398, 0.406857, 0.656228, -0.518394, 0.110045, 0.529464, 0.75661, -0.191184, 0.564174, 0.134861)
+mesh = SubResource("BoxMesh_filing")
+
+[node name="FilingB" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.635876, -0.345575, 0.584072, 0.191123, 0.859189, 0.300278, -0.651179, -0.08528, 0.658478, -0.059221, 0.525314, -0.029198)
+mesh = SubResource("BoxMesh_filing")
+
+[node name="FilingC" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.510307, -0.658961, -0.412623, 0.609999, 0.645363, -0.276239, 0.482067, -0.119067, 0.786342, 0.347851, 0.474345, 0.011393)
+mesh = SubResource("BoxMesh_filing")

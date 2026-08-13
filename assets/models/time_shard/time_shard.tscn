@@ -1,0 +1,138 @@
+[gd_scene load_steps=14 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Mat_Slate"]
+albedo_color = Color(0.13, 0.14, 0.18, 1)
+metallic = 0.55
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="Mat_Halo"]
+albedo_color = Color(0.12, 0.5, 0.58, 1)
+metallic = 0.3
+roughness = 0.2
+emission_enabled = true
+emission = Color(0.1, 0.72, 0.85, 1)
+emission_energy_multiplier = 1.8
+
+[sub_resource type="StandardMaterial3D" id="Mat_Crystal"]
+albedo_color = Color(0.36, 0.72, 0.85, 1)
+metallic = 0.3
+roughness = 0.15
+emission_enabled = true
+emission = Color(0.05, 0.34, 0.5, 1)
+emission_energy_multiplier = 0.75
+
+[sub_resource type="StandardMaterial3D" id="Mat_Splinter"]
+albedo_color = Color(0.55, 0.85, 0.95, 1)
+metallic = 0.25
+roughness = 0.12
+emission_enabled = true
+emission = Color(0.12, 0.5, 0.68, 1)
+emission_energy_multiplier = 1.1
+
+[sub_resource type="CylinderMesh" id="Mesh_Base"]
+material = SubResource("Mat_Slate")
+top_radius = 0.3
+bottom_radius = 0.33
+height = 0.06
+radial_segments = 7
+rings = 1
+
+[sub_resource type="TorusMesh" id="Mesh_BaseHalo"]
+material = SubResource("Mat_Halo")
+inner_radius = 0.29
+outer_radius = 0.35
+rings = 24
+ring_segments = 10
+
+[sub_resource type="CylinderMesh" id="Mesh_CrystalFoot"]
+material = SubResource("Mat_Crystal")
+top_radius = 0.12
+bottom_radius = 0
+height = 0.16
+radial_segments = 6
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_CrystalBody"]
+material = SubResource("Mat_Crystal")
+top_radius = 0.1
+bottom_radius = 0.12
+height = 0.52
+radial_segments = 6
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_CrystalTip"]
+material = SubResource("Mat_Crystal")
+top_radius = 0
+bottom_radius = 0.1
+height = 0.24
+radial_segments = 6
+rings = 1
+
+[sub_resource type="TorusMesh" id="Mesh_ChronoRing"]
+material = SubResource("Mat_Halo")
+inner_radius = 0.16
+outer_radius = 0.205
+rings = 24
+ring_segments = 10
+
+[sub_resource type="CylinderMesh" id="Mesh_SplinterA"]
+material = SubResource("Mat_Splinter")
+top_radius = 0
+bottom_radius = 0.055
+height = 0.4
+radial_segments = 6
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_SplinterB"]
+material = SubResource("Mat_Splinter")
+top_radius = 0
+bottom_radius = 0.045
+height = 0.32
+radial_segments = 6
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_SplinterC"]
+material = SubResource("Mat_Splinter")
+top_radius = 0
+bottom_radius = 0.03
+height = 0.22
+radial_segments = 6
+rings = 1
+
+[node name="TimeShard" type="Node3D"]
+
+[node name="Base" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.97437, 0, -0.22495, 0, 1, 0, 0.22495, 0, 0.97437, 0, -0.52, 0)
+mesh = SubResource("Mesh_Base")
+
+[node name="BaseHalo" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.47, 0)
+mesh = SubResource("Mesh_BaseHalo")
+
+[node name="CrystalFoot" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99452, -0.10427, -0.00729, 0.10453, 0.9921, 0.06937, 0, -0.06976, 0.99756, -0.03554, -0.33731, -0.02359)
+mesh = SubResource("Mesh_CrystalFoot")
+
+[node name="CrystalBody" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99452, -0.10427, -0.00729, 0.10453, 0.9921, 0.06937, 0, -0.06976, 0.99756, 0, 0, 0)
+mesh = SubResource("Mesh_CrystalBody")
+
+[node name="CrystalTip" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99452, -0.10427, -0.00729, 0.10453, 0.9921, 0.06937, 0, -0.06976, 0.99756, 0.03972, 0.377, 0.02636)
+mesh = SubResource("Mesh_CrystalTip")
+
+[node name="ChronoRing" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.92967, -0.34223, -0.13632, 0.36592, 0.8152, 0.44894, -0.04252, -0.46725, 0.8831, 0.00418, 0.03968, 0.00277)
+mesh = SubResource("Mesh_ChronoRing")
+
+[node name="SplinterA" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.72125, -0.68521, 0.10139, 0.69221, 0.70766, -0.14162, 0.02529, 0.17233, 0.98472, 0.24993, 0.14642, 0.02214)
+mesh = SubResource("Mesh_SplinterA")
+
+[node name="SplinterB" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.78446, 0.56546, 0.25473, -0.61934, 0.73566, 0.27427, -0.0323, -0.37292, 0.9273, -0.20691, 0.05295, -0.02079)
+mesh = SubResource("Mesh_SplinterB")
+
+[node name="SplinterC" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.99059, -0.00617, 0.13674, -0.10932, 0.56549, 0.81748, -0.08237, -0.82473, 0.55949, 0.01103, -0.10838, 0.18826)
+mesh = SubResource("Mesh_SplinterC")

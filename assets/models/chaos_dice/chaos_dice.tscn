@@ -1,0 +1,127 @@
+[gd_scene load_steps=13 format=3]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bone"]
+albedo_color = Color(0.9, 0.87, 0.76, 1)
+metallic = 0.05
+roughness = 0.55
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blood"]
+albedo_color = Color(0.48, 0.05, 0.07, 1)
+metallic = 0.15
+roughness = 0.45
+emission_enabled = true
+emission = Color(0.5, 0.03, 0.05, 1)
+emission_energy_multiplier = 0.6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pip_dark"]
+albedo_color = Color(0.06, 0.05, 0.06, 1)
+metallic = 0.1
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pip_light"]
+albedo_color = Color(0.95, 0.94, 0.9, 1)
+metallic = 0.1
+roughness = 0.4
+emission_enabled = true
+emission = Color(0.9, 0.88, 0.8, 1)
+emission_energy_multiplier = 0.55
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_coin"]
+albedo_color = Color(0.74, 0.56, 0.18, 1)
+metallic = 0.75
+roughness = 0.42
+emission_enabled = true
+emission = Color(0.5, 0.32, 0.06, 1)
+emission_energy_multiplier = 0.5
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_coin_a"]
+material = SubResource("StandardMaterial3D_coin")
+top_radius = 0.22
+bottom_radius = 0.22
+height = 0.05
+radial_segments = 18
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_coin_b"]
+material = SubResource("StandardMaterial3D_coin")
+top_radius = 0.19
+bottom_radius = 0.19
+height = 0.05
+radial_segments = 18
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_coin_c"]
+material = SubResource("StandardMaterial3D_coin")
+top_radius = 0.15
+bottom_radius = 0.15
+height = 0.045
+radial_segments = 18
+rings = 1
+
+[sub_resource type="BoxMesh" id="BoxMesh_die_white"]
+material = SubResource("StandardMaterial3D_bone")
+size = Vector3(0.34, 0.34, 0.34)
+
+[sub_resource type="BoxMesh" id="BoxMesh_die_red"]
+material = SubResource("StandardMaterial3D_blood")
+size = Vector3(0.3, 0.3, 0.3)
+
+[sub_resource type="SphereMesh" id="SphereMesh_pip_dark"]
+material = SubResource("StandardMaterial3D_pip_dark")
+radius = 0.036
+height = 0.072
+radial_segments = 8
+rings = 5
+
+[sub_resource type="SphereMesh" id="SphereMesh_pip_light"]
+material = SubResource("StandardMaterial3D_pip_light")
+radius = 0.033
+height = 0.066
+radial_segments = 8
+rings = 5
+
+[node name="ChaosDice" type="Node3D"]
+
+[node name="CoinBase" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.994522, 0.104528, 0, -0.103511, 0.984843, -0.139173, -0.014548, 0.138411, 0.990268, -0.02, -0.43, 0.06)
+mesh = SubResource("CylinderMesh_coin_a")
+
+[node name="CoinLean" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.866025, -0.5, 0, 0.480631, 0.832477, 0.275637, -0.137819, -0.238709, 0.961262, 0.25, -0.36, -0.11)
+mesh = SubResource("CylinderMesh_coin_b")
+
+[node name="CoinChip" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.829038, 0.559193, 0, -0.502599, 0.745134, -0.438371, -0.245134, 0.363426, 0.898794, -0.25, -0.35, -0.16)
+mesh = SubResource("CylinderMesh_coin_c")
+
+[node name="DieBone" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.79547, 0.336495, 0.503983, -0.197736, 0.930274, -0.309017, -0.572825, 0.146158, 0.806542, -0.14, -0.13, 0.05)
+mesh = SubResource("BoxMesh_die_white")
+
+[node name="DieBlood" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.858746, -0.427624, -0.282301, 0.510848, 0.757364, 0.406737, 0.039874, -0.493496, 0.868833, 0.16, 0.11, -0.04)
+mesh = SubResource("BoxMesh_die_red")
+
+[node name="PipBoneA" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.79547, 0.336495, 0.503983, -0.197736, 0.930274, -0.309017, -0.572825, 0.146158, 0.806542, 0.046546, -0.115986, 0.147099)
+mesh = SubResource("SphereMesh_pip_dark")
+
+[node name="PipBoneB" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.79547, 0.336495, 0.503983, -0.197736, 0.930274, -0.309017, -0.572825, 0.146158, 0.806542, -0.055331, -0.181915, 0.185499)
+mesh = SubResource("SphereMesh_pip_dark")
+
+[node name="PipBoneC" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.79547, 0.336495, 0.503983, -0.197736, 0.930274, -0.309017, -0.572825, 0.146158, 0.806542, -0.157208, -0.247843, 0.223899)
+mesh = SubResource("SphereMesh_pip_dark")
+
+[node name="PipBoneTop" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.79547, 0.336495, 0.503983, -0.197736, 0.930274, -0.309017, -0.572825, 0.146158, 0.806542, -0.083469, 0.026286, 0.074555)
+mesh = SubResource("SphereMesh_pip_dark")
+
+[node name="PipBloodA" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.858746, -0.427624, -0.282301, 0.510848, 0.757364, 0.406737, 0.039874, -0.493496, 0.868833, 0.152709, 0.271654, 0.052298)
+mesh = SubResource("SphereMesh_pip_light")
+
+[node name="PipBloodB" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.858746, -0.427624, -0.282301, 0.510848, 0.757364, 0.406737, 0.039874, -0.493496, 0.868833, 0.08373, 0.06874, 0.124877)
+mesh = SubResource("SphereMesh_pip_light")

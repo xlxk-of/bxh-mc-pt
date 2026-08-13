@@ -1,0 +1,125 @@
+[gd_scene load_steps=15 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Mat_Leather"]
+albedo_color = Color(0.33, 0.08, 0.1, 1)
+metallic = 0
+roughness = 0.72
+
+[sub_resource type="StandardMaterial3D" id="Mat_Pages"]
+albedo_color = Color(0.87, 0.83, 0.71, 1)
+metallic = 0
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Mat_Brass"]
+albedo_color = Color(0.74, 0.57, 0.21, 1)
+metallic = 0.9
+roughness = 0.32
+emission_enabled = true
+emission = Color(0.32, 0.2, 0.04, 1)
+emission_energy_multiplier = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Mat_Coin"]
+albedo_color = Color(0.87, 0.7, 0.3, 1)
+metallic = 1
+roughness = 0.24
+emission_enabled = true
+emission = Color(0.42, 0.28, 0.06, 1)
+emission_energy_multiplier = 0.9
+
+[sub_resource type="BoxMesh" id="Mesh_CoverBack"]
+material = SubResource("Mat_Leather")
+size = Vector3(0.7, 0.055, 0.54)
+
+[sub_resource type="BoxMesh" id="Mesh_PageBlock"]
+material = SubResource("Mat_Pages")
+size = Vector3(0.665, 0.135, 0.505)
+
+[sub_resource type="BoxMesh" id="Mesh_CoverFront"]
+material = SubResource("Mat_Leather")
+size = Vector3(0.7, 0.055, 0.54)
+
+[sub_resource type="CylinderMesh" id="Mesh_Spine"]
+material = SubResource("Mat_Leather")
+top_radius = 0.125
+bottom_radius = 0.125
+height = 0.54
+radial_segments = 14
+rings = 1
+
+[sub_resource type="BoxMesh" id="Mesh_StrapTop"]
+material = SubResource("Mat_Brass")
+size = Vector3(0.21, 0.018, 0.085)
+
+[sub_resource type="BoxMesh" id="Mesh_StrapEdge"]
+material = SubResource("Mat_Brass")
+size = Vector3(0.018, 0.27, 0.085)
+
+[sub_resource type="BoxMesh" id="Mesh_Buckle"]
+material = SubResource("Mat_Brass")
+size = Vector3(0.055, 0.075, 0.105)
+
+[sub_resource type="CylinderMesh" id="Mesh_Coin1"]
+material = SubResource("Mat_Coin")
+top_radius = 0.088
+bottom_radius = 0.088
+height = 0.026
+radial_segments = 14
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_Coin2"]
+material = SubResource("Mat_Coin")
+top_radius = 0.088
+bottom_radius = 0.088
+height = 0.026
+radial_segments = 14
+rings = 1
+
+[sub_resource type="CylinderMesh" id="Mesh_Coin3"]
+material = SubResource("Mat_Coin")
+top_radius = 0.088
+bottom_radius = 0.088
+height = 0.026
+radial_segments = 14
+rings = 1
+
+[node name="LedgerOfSouls" type="Node3D"]
+
+[node name="CoverBack" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.96674, -0.10427, 0.23352, 0.08464, 0.9921, 0.0926, -0.24133, -0.06976, 0.96793, -0.00973, -0.11409, -0.01065)
+mesh = SubResource("Mesh_CoverBack")
+
+[node name="PageBlock" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.96674, -0.10427, 0.23352, 0.08464, 0.9921, 0.0926, -0.24133, -0.06976, 0.96793, 0.00314, -0.02036, -0.00068)
+mesh = SubResource("Mesh_PageBlock")
+
+[node name="CoverFront" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.96674, -0.10427, 0.23352, 0.08464, 0.9921, 0.0926, -0.24133, -0.06976, 0.96793, 0.00635, 0.07441, 0.00695)
+mesh = SubResource("Mesh_CoverFront")
+
+[node name="Spine" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.96674, -0.10427, 0.23352, -0.24133, -0.06976, 0.96793, -0.08464, -0.9921, -0.0926, -0.32555, 0.01509, -0.08008)
+mesh = SubResource("Mesh_Spine")
+
+[node name="StrapTop" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.96674, -0.10427, 0.23352, 0.08464, 0.9921, 0.0926, -0.24133, -0.06976, 0.96793, 0.26041, 0.07904, 0.07062)
+mesh = SubResource("Mesh_StrapTop")
+
+[node name="StrapEdge" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.96674, -0.10427, 0.23352, 0.08464, 0.9921, 0.0926, -0.24133, -0.06976, 0.96793, 0.34053, -0.05675, 0.08081)
+mesh = SubResource("Mesh_StrapEdge")
+
+[node name="Buckle" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.96674, -0.10427, 0.23352, 0.08464, 0.9921, 0.0926, -0.24133, -0.06976, 0.96793, 0.34241, -0.0119, 0.08451)
+mesh = SubResource("Mesh_Buckle")
+
+[node name="Coin1" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.96674, -0.10427, 0.23352, 0.08464, 0.9921, 0.0926, -0.24133, -0.06976, 0.96793, -0.09408, 0.11959, 0.05748)
+mesh = SubResource("Mesh_Coin1")
+
+[node name="Coin2" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.93642, -0.04744, -0.34766, 0.10235, 0.98466, 0.14131, 0.33563, -0.1679, 0.92691, -0.14245, 0.14805, 0.09913)
+mesh = SubResource("Mesh_Coin2")
+
+[node name="Coin3" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.67976, 0.01046, -0.73336, 0.16033, 0.9736, 0.16249, 0.71569, -0.22804, 0.66014, -0.08931, 0.16748, 0.14477)
+mesh = SubResource("Mesh_Coin3")
