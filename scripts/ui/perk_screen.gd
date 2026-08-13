@@ -40,9 +40,10 @@ func _make_card(offer: Dictionary, index: int) -> Control:
 	v.add_theme_constant_override("separation", 8)
 	panel.add_child(v)
 
-	var chip := UIKit.make_rarity_chip(offer.get("rarity", "Common"))
-	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	v.add_child(chip)
+	var tags := UIKit.make_tag_row(offer.get("rarity", "Common"), "Perk")
+	tags.alignment = BoxContainer.ALIGNMENT_CENTER
+	tags.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(tags)
 
 	var title := UIKit.make_label(offer["name"], "body", Cfg.WHITE)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

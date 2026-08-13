@@ -197,7 +197,7 @@ func _make_offer_row(entry_name: String, rarity: String, description: String,
 	var title_row := HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", 8)
 	title_row.add_child(UIKit.make_label(entry_name, "body", Cfg.WHITE))
-	title_row.add_child(UIKit.make_rarity_chip(rarity))
+	title_row.add_child(UIKit.make_tag_row(rarity, kind))
 	text.add_child(title_row)
 
 	var desc := UIKit.make_label(description, "small", Cfg.LIGHT_GRAY)
@@ -243,9 +243,10 @@ func _make_offer_card(panel: PanelContainer, entry_name: String, rarity: String,
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(title)
 
-	var chip := UIKit.make_rarity_chip(rarity)
-	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	box.add_child(chip)
+	var tags := UIKit.make_tag_row(rarity, kind)
+	tags.alignment = BoxContainer.ALIGNMENT_CENTER
+	tags.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(tags)
 
 	var desc := UIKit.make_label(description, "small", Cfg.LIGHT_GRAY)
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

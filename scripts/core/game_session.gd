@@ -71,6 +71,7 @@ var obstacles_on_board := false
 var is_game_over := false
 ## Soul Embers this run paid out, read by the game-over screen.
 var last_run_embers := 0
+var _last_save_ms := 0
 var second_skin_used := false
 var sin_revive_used := false
 
@@ -700,6 +701,7 @@ func place_piece(shape: Dictionary, r: int, c: int) -> bool:
 	if not is_game_over and pending_effect.is_empty() and not conjure_active:
 		if not can_any_piece_be_placed():
 			check_game_over("No valid moves")
+	checkpoint_run()
 	return true
 
 
@@ -2876,4 +2878,23 @@ func _revive_list(raw: Variant) -> Array:
 func save_run() -> void:
 	if is_game_over:
 		return
+	_last_save_ms = Time.get_ticks_msec()
 	SaveGame.save_run(to_save_dict())
+
+
+## Checkpoint after every placement, rate-limited.
+##
+## A browser tab can be reloaded out from under the player at any moment - iOS
+## discards them under memory pressure - and the run was only written at the end
+## of each set, so a reload cost up to two placements and the round's momentum.
+## Saving per move makes that survivable: the menu already offers Continue Run,
+## and now it resumes from where they actually were.
+const SAVE_THROTTLE_MS := 1500
+
+
+func checkpoint_run() -> void:
+	if is_game_over:
+		return
+	if Time.get_ticks_msec() - _last_save_ms < SAVE_THROTTLE_MS:
+		return
+	save_run()

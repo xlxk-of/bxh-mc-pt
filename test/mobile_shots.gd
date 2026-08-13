@@ -41,6 +41,7 @@ func _ready() -> void:
 	await _verify_touch_override()
 	await _verify_shop_drag_scroll()
 	await _verify_menu_round_trip()
+	await _verify_burst_budget()
 
 	print("form=%s portrait=%s scale=%.2f logical=%s" % [
 		Layout.form, Layout.portrait, get_window().content_scale_factor, Layout.logical_size()])
@@ -178,6 +179,37 @@ func _verify_drag_gain() -> void:
 		print("  placement mode %d: finger %s -> piece %s (expected %.1fx) %s" % [
 			mode, delta, moved, want, "OK" if ok else "FAIL"])
 	SaveGame.placement_mode = BoardView.PLACEMENT_DEFAULT
+
+
+## The mid-round crash, pinned.
+##
+## The board used to build one GPUParticles2D per cleared cell, each carrying its
+## own process material, colour ramp texture and particle texture. A cross blast
+## on a full board did that seventeen times over, and a good combo did it several
+## times a second, until the browser tab hit its GPU memory ceiling and reloaded
+## itself. Emitters must stay bounded no matter how much is cleared at once.
+func _verify_burst_budget() -> void:
+	var board: BoardView = main._hud.board
+	var session: GameSession = main.session
+	var whole_board: Array = []
+	for r in session.grid_rows:
+		for c in session.grid_cols:
+			whole_board.append(Vector2i(r, c))
+
+	# Six full-board clears back to back, which is worse than anything the game
+	# can actually produce in one frame.
+	for i in 6:
+		board._on_cells_cleared(whole_board, "line")
+	await get_tree().process_frame
+
+	var emitters := 0
+	for child in board.get_children():
+		if child is GPUParticles2D:
+			emitters += 1
+	var naive: int = whole_board.size() * 6
+	print("  burst budget: %d emitters after %d cleared cells (naive %d, cap %d) %s" % [
+		emitters, whole_board.size() * 6, naive, BoardView.MAX_LIVE_BURSTS,
+		"OK" if emitters <= BoardView.MAX_LIVE_BURSTS else "FAIL"])
 
 
 ## Nothing may reach past the side of the screen. Godot lays a container out past

@@ -284,6 +284,47 @@ static func make_rarity_chip(rarity: String) -> PanelContainer:
 	return p
 
 
+## Type chip: what the entry *is*, worn next to how rare it is. A card and an
+## item at the same rarity cost the same and read the same in a shop row, but
+## they compete for different slots, so the pair "(Exotic) (Card)" answers the
+## only two questions a player has before reading the description.
+static func make_type_chip(kind: String) -> PanelContainer:
+	var col := type_color(kind)
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(col.r, col.g, col.b, 0.16)
+	sb.border_color = Color(col.r, col.g, col.b, 0.75)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(999)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
+	p.add_theme_stylebox_override("panel", sb)
+	p.add_child(make_label(kind.to_upper(), "tiny", col.lightened(0.25)))
+	return p
+
+
+## Deliberately not rarity-tinted: the two chips sit side by side, and giving
+## them the same colour would make the pair read as one long badge.
+static func type_color(kind: String) -> Color:
+	match kind.to_lower():
+		"card": return Cfg.PANEL_ACCENT
+		"item": return Cfg.CYAN
+		"perk": return Cfg.MAGENTA
+		"contract": return Cfg.ACCENT_DANGER
+	return Cfg.GRAY
+
+
+## Rarity and type as one row, in that order.
+static func make_tag_row(rarity: String, kind: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.add_child(make_rarity_chip(rarity))
+	row.add_child(make_type_chip(kind))
+	return row
+
+
 static func refresh_rarity_chip(chip: PanelContainer) -> void:
 	if chip == null or String(chip.get_meta("rarity", "")) != "Cosmic":
 		return

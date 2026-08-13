@@ -352,7 +352,7 @@ func _on_cells_cleared(cells: Array, kind: String) -> void:
 		_laser_pulse = 1.0
 	for cell in cells:
 		_cell_fx[cell] = {"t": 0.0, "dur": 0.42, "kind": "clear"}
-		_spawn_burst(cell_center(cell.x, cell.y), _burst_color(kind), kind)
+	_spawn_burst(cells, _burst_color(kind), kind)
 	if cells.size() >= 4:
 		_spawn_shockwave(_average_center(cells), _burst_color(kind))
 	queue_redraw()
@@ -377,19 +377,88 @@ func _burst_color(kind: String) -> Color:
 # ==========================================================================
 #  Particles
 # ==========================================================================
-func _spawn_burst(pos: Vector2, color: Color, kind: String) -> void:
+## One burst for a whole clear, not one per cell.
+##
+## This used to build a GPUParticles2D per cleared cell, each carrying its own
+## process material, colour ramp texture and particle texture, then throw the lot
+## away a second later. A cross blast clears seventeen cells; a good combo did
+## that several times a second. That is a great deal of GPU allocation churn for
+## a browser tab with a hard memory ceiling, and it scaled with how well the
+## player was doing - which is precisely when the game was dying on them.
+##
+## Now: one emitter covering the cleared region, drawing on a shared texture and
+## a per-kind material, with a live cap so a screen-clearing chain cannot stack
+## emitters faster than they retire.
+const MAX_LIVE_BURSTS := 6
+const BURST_LIFETIME := 0.75
+
+static var _burst_texture: Texture2D = null
+static var _burst_materials := {}
+
+var _live_bursts: Array[GPUParticles2D] = []
+
+
+func _spawn_burst(cells: Array, color: Color, kind: String) -> void:
+	if cells.is_empty():
+		return
+	var box := _cells_rect(cells)
 	var p := GPUParticles2D.new()
-	p.position = pos
+	p.position = box.get_center()
 	p.one_shot = true
 	p.emitting = true
 	p.explosiveness = 1.0
-	p.amount = 14 if kind == "line" else 22
-	p.lifetime = 0.75
+	# Scaled to how much was cleared, so a full-board wipe still reads as one,
+	# rather than costing seventeen emitters to say the same thing.
+	var per_cell: int = 7 if kind == "line" else 11
+	p.amount = clampi(cells.size() * per_cell, 12, 180)
+	p.lifetime = BURST_LIFETIME
 	p.local_coords = false
+	# The ramp is white-to-transparent and the colour rides on modulate, so every
+	# burst of a given kind can share one material whatever colour it is.
+	p.modulate = color
+	p.texture = _shared_burst_texture()
+	p.process_material = _burst_material(kind, box.size)
+
+	add_child(p)
+	_live_bursts.append(p)
+	while _live_bursts.size() > MAX_LIVE_BURSTS:
+		var oldest: GPUParticles2D = _live_bursts.pop_front()
+		if is_instance_valid(oldest):
+			oldest.queue_free()
+	var timer := get_tree().create_timer(p.lifetime + 0.3)
+	timer.timeout.connect(func():
+		_live_bursts.erase(p)
+		if is_instance_valid(p):
+			p.queue_free())
+
+
+## Bounding box of the cleared cells, in board-local space.
+func _cells_rect(cells: Array) -> Rect2:
+	var box := cell_rect(cells[0].x, cells[0].y)
+	for cell in cells:
+		box = box.merge(cell_rect(cell.x, cell.y))
+	return box
+
+
+static func _shared_burst_texture() -> Texture2D:
+	if _burst_texture == null:
+		var img := Image.create(6, 6, false, Image.FORMAT_RGBA8)
+		img.fill(Color.WHITE)
+		_burst_texture = ImageTexture.create_from_image(img)
+	return _burst_texture
+
+
+## Cached per kind and per rounded emission size. Bucketing the size keeps the
+## cache to a handful of materials over a whole run instead of one per clear.
+static func _burst_material(kind: String, span: Vector2) -> ParticleProcessMaterial:
+	var bucket := Vector2i((span / 32.0).round())
+	var key := "%s|%d|%d" % [kind, bucket.x, bucket.y]
+	if _burst_materials.has(key):
+		return _burst_materials[key]
 
 	var mat := ParticleProcessMaterial.new()
-	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	mat.emission_sphere_radius = cell_size * 0.35
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents = Vector3(maxf(span.x, 8.0) * 0.5, maxf(span.y, 8.0) * 0.5, 0.0)
 	mat.direction = Vector3(0, -1, 0)
 	mat.spread = 180.0
 	mat.gravity = Vector3(0, 620, 0)
@@ -405,24 +474,14 @@ func _spawn_burst(pos: Vector2, color: Color, kind: String) -> void:
 	var ramp := Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
 	ramp.colors = PackedColorArray([
-		Color(1, 1, 1, 1),
-		Color(color.r, color.g, color.b, 0.95),
-		Color(color.r * 0.5, color.g * 0.25, color.b * 0.25, 0.0),
+		Color(1, 1, 1, 1), Color(1, 1, 1, 0.95), Color(0.5, 0.3, 0.3, 0.0),
 	])
 	var ramp_tex := GradientTexture1D.new()
 	ramp_tex.gradient = ramp
 	mat.color_ramp = ramp_tex
-	p.process_material = mat
 
-	var img := Image.create(6, 6, false, Image.FORMAT_RGBA8)
-	img.fill(Color.WHITE)
-	p.texture = ImageTexture.create_from_image(img)
-
-	add_child(p)
-	var timer := get_tree().create_timer(p.lifetime + 0.3)
-	timer.timeout.connect(func():
-		if is_instance_valid(p):
-			p.queue_free())
+	_burst_materials[key] = mat
+	return mat
 
 
 func _spawn_shockwave(pos: Vector2, color: Color) -> void:
