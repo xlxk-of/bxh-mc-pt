@@ -39,6 +39,8 @@ func _ready() -> void:
 	_verify_drag_gain()
 	_verify_touch_metrics()
 	await _verify_touch_override()
+	await _verify_shop_drag_scroll()
+	await _verify_menu_round_trip()
 
 	print("form=%s portrait=%s scale=%.2f logical=%s" % [
 		Layout.form, Layout.portrait, get_window().content_scale_factor, Layout.logical_size()])
@@ -138,6 +140,9 @@ func _verify_drag_gain() -> void:
 	if session.hand.is_empty():
 		session.generate_hand()
 
+	# Also covers the drag-speed slider: whatever it is set to is what the piece
+	# actually travels, and Direct ignores it entirely.
+	SaveGame.drag_gain = 1.5
 	for mode in [BoardView.PLACEMENT_DEFAULT, BoardView.PLACEMENT_DIRECT]:
 		SaveGame.placement_mode = mode
 		var rect := board.grid_rect()
@@ -148,7 +153,7 @@ func _verify_drag_gain() -> void:
 		board.update_drag(finger + delta)
 		var moved := board.piece_centre() - start
 		board.cancel_drag()
-		var want: float = 1.0 if mode == BoardView.PLACEMENT_DIRECT else BoardView.DRAG_GAIN
+		var want: float = 1.0 if mode == BoardView.PLACEMENT_DIRECT else SaveGame.drag_gain
 		var ok: bool = moved.is_equal_approx(delta * want)
 		print("  placement mode %d: finger %s -> piece %s (expected %.1fx) %s" % [
 			mode, delta, moved, want, "OK" if ok else "FAIL"])
@@ -209,6 +214,122 @@ func _verify_touch_override() -> void:
 	SaveGame.touch_override = 0
 	Layout.refresh_touch_mode()
 	await _settle(0.5)
+
+
+## The complaint that started this: on a phone the shop could only be scrolled
+## from the gutters between the cards, because every panel and Buy button ate
+## the drag. Dragging from *on top of* a Buy button must scroll and must not
+## buy -- and a plain tap on that same button must still buy.
+func _verify_shop_drag_scroll() -> void:
+	DisplayServer.window_set_size(PORTRAIT)
+	await _settle(0.8)
+	main.session.money = 999
+	main.session.generate_shop_offers()
+	main._open_shop()
+	await _settle(0.9)
+
+	var shop: Node = main._active_screen
+	var scroll := _find_scroll(shop)
+	var buy := _find_button(shop, "Buy")
+	if scroll == null or buy == null:
+		print("  shop drag-scroll: SKIPPED (no scroll view or no affordable offer)")
+		return
+
+	var start: Vector2 = buy.get_global_rect().get_center()
+	var before_scroll: int = scroll.scroll_vertical
+	var before_money: int = main.session.money
+	var before_cards: int = main.session.cards.size() + main.session.items.size()
+
+	await _drag(start, Vector2(0, -30), 6)
+	await _settle(0.4)
+	var scrolled: int = scroll.scroll_vertical - before_scroll
+	var bought: bool = main.session.money != before_money \
+		or main.session.cards.size() + main.session.items.size() != before_cards
+	print("  shop drag from a Buy button: scrolled %dpx, bought=%s %s" % [
+		scrolled, bought, "OK" if scrolled > 40 and not bought else "FAIL"])
+
+	# A tap on the same control must still go through, or the fix has simply
+	# traded one broken interaction for another.
+	buy = _find_button(shop, "Buy")
+	if buy != null:
+		before_money = main.session.money
+		await _tap(buy.get_global_rect().get_center())
+		await _settle(0.4)
+		var tapped: bool = main.session.money != before_money
+		print("  tap on a Buy button still buys: %s %s" % [tapped, "OK" if tapped else "FAIL"])
+
+	if main._active_screen:
+		main._active_screen.close()
+	await _settle(0.4)
+
+
+## Going back to the menu now tears the HUD down to release its 3D viewports,
+## which is only safe if walking straight back into a run rebuilds it. A blank
+## playfield here would be a far worse bug than the one that motivated it.
+func _verify_menu_round_trip() -> void:
+	var hud: HUD = main._hud
+	var icons_before: int = hud._previews.size()
+	main._show_main_menu()
+	await _settle(0.7)
+	var released: bool = not hud._built and hud._previews.is_empty()
+
+	main._start_new_run()
+	await _settle(0.9)
+	var rebuilt: bool = hud._built and hud.visible \
+		and hud._previews.size() > 0 and hud.board.get_parent() != null
+	print("  menu round trip: released=%s rebuilt=%s (%d -> 0 -> %d slots) %s" % [
+		released, rebuilt, icons_before, hud._previews.size(),
+		"OK" if released and rebuilt else "FAIL"])
+	await _shot("after_menu_round_trip")
+
+
+func _find_button(node: Node, prefix: String) -> Button:
+	if node is Button and (node as Button).text.begins_with(prefix) \
+			and not (node as Button).disabled:
+		return node
+	for child in node.get_children():
+		var found := _find_button(child, prefix)
+		if found:
+			return found
+	return null
+
+
+func _drag(from: Vector2, step: Vector2, steps: int) -> void:
+	_press(from)
+	var at := from
+	for i in steps:
+		at += step
+		var move := InputEventMouseMotion.new()
+		move.position = at
+		move.global_position = at
+		move.relative = step
+		Input.parse_input_event(move)
+		await get_tree().process_frame
+	_release(at)
+
+
+func _tap(at: Vector2) -> void:
+	_press(at)
+	await get_tree().process_frame
+	_release(at)
+
+
+func _press(at: Vector2) -> void:
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.position = at
+	ev.global_position = at
+	Input.parse_input_event(ev)
+
+
+func _release(at: Vector2) -> void:
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = false
+	ev.position = at
+	ev.global_position = at
+	Input.parse_input_event(ev)
 
 
 func _settle(seconds: float) -> void:

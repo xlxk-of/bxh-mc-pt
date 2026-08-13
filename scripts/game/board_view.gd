@@ -28,7 +28,10 @@ var board_origin := Vector2.ZERO
 ## Default (Block Blast style) placement multiplies finger motion by this, so
 ## the piece outruns the thumb and a short swipe reaches the far side of the
 ## board. Direct placement uses 1.0, putting the piece under the finger.
-const DRAG_GAIN := 2.0
+## Player-tunable via SaveGame.drag_gain; these are the bounds of that slider.
+const DRAG_GAIN_DEFAULT := 1.5
+const DRAG_GAIN_MIN := 1.0
+const DRAG_GAIN_MAX := 3.0
 const PLACEMENT_DEFAULT := 0
 const PLACEMENT_DIRECT := 1
 
@@ -40,6 +43,7 @@ var _drag_piece_anchor := Vector2.ZERO
 var _drag_lift := 0.0
 var _pointer_pos := Vector2.ZERO
 var _pointer_inside := false
+var _board_pressed := false
 var _ghost_valid := false
 var _snap_used := false
 
@@ -187,7 +191,9 @@ func update_drag(pointer_global: Vector2) -> void:
 func _drag_gain() -> float:
 	if not Layout.touch_primary:
 		return 1.0
-	return 1.0 if SaveGame.placement_mode == PLACEMENT_DIRECT else DRAG_GAIN
+	if SaveGame.placement_mode == PLACEMENT_DIRECT:
+		return 1.0
+	return clampf(SaveGame.drag_gain, DRAG_GAIN_MIN, DRAG_GAIN_MAX)
 
 
 ## Where the piece itself sits, in board-local space. While dragging this is
@@ -203,11 +209,24 @@ func piece_centre() -> Vector2:
 	return centre.clamp(bounds.position, bounds.end)
 
 
+## On touch, nothing should sit on the board until the player actually picks a
+## piece up -- a ghost left behind by the previous tap reads as "a piece is
+## already there". With a mouse the ghost is the cursor's whole purpose, so it
+## keeps tracking the pointer exactly as before.
+func _ghost_armed() -> bool:
+	return dragging or not Layout.touch_primary or _board_pressed
+
+
 func _update_pointer(pointer_global: Vector2) -> void:
 	_pointer_pos = get_global_transform().affine_inverse() * pointer_global
 	var probe := piece_centre() if dragging else _pointer_pos
 	var cell := cell_at_point(probe)
 	_pointer_inside = in_bounds(cell)
+	if not _ghost_armed():
+		# Drop any highlight the last gesture armed, or it outlives the finger.
+		if session != null and not session.potential_clear_cells.is_empty():
+			session.potential_clear_cells = []
+		return
 	if _pointer_inside and session != null:
 		var shape: Dictionary = _drag_shape if dragging else session.selected_shape()
 		if not shape.is_empty():
@@ -276,11 +295,16 @@ func _gui_input(event: InputEvent) -> void:
 				accept_event()
 			return
 		if mb.pressed:
+			# Arms the ghost on touch: it appears under the finger that is on
+			# the board right now, and nowhere else.
+			_board_pressed = true
 			_update_pointer(mb.global_position)
+			queue_redraw()
 			accept_event()
 			return
 		# Release inside the board: place, or resolve a targeted item effect.
 		_update_pointer(mb.global_position)
+		_board_pressed = false
 		if not _pointer_inside:
 			return
 		var cell := cell_at_point(_pointer_pos)
@@ -547,7 +571,7 @@ func _draw_ghost() -> void:
 	var shape: Dictionary = _drag_shape if dragging else session.selected_shape()
 	if shape.is_empty():
 		return
-	if not dragging and not _pointer_inside and Layout.touch_primary:
+	if not _ghost_armed():
 		return
 
 	var origin: Vector2i = session.ghost_pos

@@ -78,9 +78,40 @@ func _layout_key() -> String:
 
 func _on_layout_changed() -> void:
 	UIKit.fill_viewport(self)
+	# While the HUD is torn down for the menu there is nothing to re-flow;
+	# _enter_run() rebuilds it against whatever the layout is by then.
+	if not visible:
+		return
 	if _built and _built_mode == _layout_key():
 		return
 	_build_layout()
+
+
+## Drop every visual the HUD owns, keeping the session and the board object.
+##
+## Returning to the menu used to leave the HUD merely hidden, which meant every
+## card and item icon kept its SubViewport, its own 3D world, its two lights and
+## its model -- all still rendering at full rate for a screen nobody is looking
+## at. A phone browser has a hard cap on that, and hitting it is what reloads
+## the tab out from under the player.
+func release_visuals() -> void:
+	if board.get_parent() != null:
+		board.get_parent().remove_child(board)
+	for child in get_children():
+		child.queue_free()
+	_previews.clear()
+	_card_icons.clear()
+	_item_icons.clear()
+	_lane = null
+	_board_holder = null
+	_built = false
+	_built_mode = ""
+
+
+## Rebuild after release_visuals(). Cheap no-op if the HUD is already standing.
+func ensure_built() -> void:
+	if not _built:
+		_build_layout()
 
 
 # ==========================================================================

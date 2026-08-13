@@ -198,6 +198,8 @@ func _show_main_menu() -> void:
 	if _menu != null and is_instance_valid(_menu):
 		_menu.queue_free()
 	_hud.visible = false
+	# Not just hidden: a hidden HUD still holds a 3D viewport per card.
+	_hud.release_visuals()
 	_toasts.clear()
 	Juice.reset()
 	_background.apply_theme("limbo")
@@ -219,6 +221,7 @@ func _enter_run() -> void:
 		_menu.queue_free()
 		_menu = null
 	_hud.visible = true
+	_hud.ensure_built()
 	_background.apply_theme(_background.theme_for_round(session.round_count))
 	Audio.play_music(Cfg.MUSIC_INGAME)
 	SteamManager.set_rich_presence("steam_display", "#Status_Playing")

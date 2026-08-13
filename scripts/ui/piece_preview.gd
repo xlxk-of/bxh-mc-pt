@@ -85,6 +85,14 @@ func _gui_input(event: InputEvent) -> void:
 			drag_started.emit(index, mm.global_position)
 
 
+func _notification(what: int) -> void:
+	# The landscape tray lives in a scroll view; a finger dragging it into view
+	# must not also pick up the piece it happened to start on.
+	if what == NOTIFICATION_SCROLL_BEGIN:
+		_pressing = false
+		_drag_fired = false
+
+
 func _draw() -> void:
 	var accent := Cfg.CYAN if is_pocket else Cfg.ACCENT_PRIMARY
 	var bg := Color(0.09, 0.09, 0.16, 0.75 + 0.15 * _hover)

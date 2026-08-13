@@ -1,0 +1,127 @@
+<!--
+  Injected into the <head> of the exported web page via the Web preset's
+  html/head_include option (see .github/workflows/web-pwa.yml).
+
+  Godot's stock shell shows a grey page with a bare <progress> bar while the
+  wasm downloads. On an installed home-screen PWA that is the *whole* first
+  impression, and it is also what the player sees if iOS ever reloads the tab
+  mid-run -- so it is dressed to look like part of the game instead of like a
+  browser accident.
+
+  Deliberately CSS only: it restyles the shell's existing #status / #status-
+  splash / #status-progress / #status-notice elements rather than adding markup
+  or scripts of its own, so it cannot fight the loader for control of the DOM.
+  If a future template renames an element the rule simply stops matching and
+  the default loader comes back.
+-->
+<style>
+  :root {
+    --bxh-ink: #08080f;
+    --bxh-gold: #ffd25a;
+    --bxh-blue: #788cdc;
+    --bxh-dim: #b4b9d2;
+  }
+
+  html, body {
+    background: var(--bxh-ink);
+    margin: 0;
+    padding: 0;
+  }
+
+  /* The loader overlay. Godot sets display:none on it once the engine runs. */
+  #status {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    background:
+      radial-gradient(ellipse at 50% 120%, #2a1140 0%, rgba(10, 8, 22, 0) 60%),
+      radial-gradient(ellipse at 50% -20%, #141a3c 0%, rgba(8, 8, 15, 0) 55%),
+      var(--bxh-ink);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    text-align: center;
+    /* Keep clear of the notch and the home indicator. */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+             env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+  }
+
+  #status::before {
+    content: "BLOCK X HELL";
+    display: block;
+    color: var(--bxh-gold);
+    font-size: clamp(26px, 8vw, 64px);
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-shadow: 0 0 18px rgba(255, 210, 90, 0.45), 0 3px 0 rgba(0, 0, 0, 0.85);
+    animation: bxh-flicker 3.4s ease-in-out infinite;
+  }
+
+  #status::after {
+    content: "Climb the tower";
+    display: block;
+    margin-top: 0.7em;
+    color: var(--bxh-dim);
+    font-size: clamp(11px, 3.2vw, 16px);
+    letter-spacing: 0.34em;
+    opacity: 0.75;
+  }
+
+  @keyframes bxh-flicker {
+    0%, 100% { opacity: 1; }
+    46%      { opacity: 1; }
+    50%      { opacity: 0.72; }
+    54%      { opacity: 1; }
+  }
+
+  /* The stock shell shows the project icon here; the wordmark above says it
+     better, and a half-resolution icon stretched across a phone does not. */
+  #status-splash {
+    display: none !important;
+  }
+
+  #status-progress,
+  #status-progress:indeterminate {
+    -webkit-appearance: none;
+    appearance: none;
+    width: min(62vw, 340px);
+    height: 8px;
+    margin-top: 2.2em;
+    border: 1px solid rgba(120, 140, 220, 0.5);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+  }
+
+  /* Chromium/WebKit and Firefox name the two halves of a progress bar
+     differently, and neither accepts the other's selector in one rule. */
+  #status-progress::-webkit-progress-bar {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+  }
+  #status-progress::-webkit-progress-value {
+    background: linear-gradient(90deg, #ff8a3c, var(--bxh-gold));
+    border-radius: 999px;
+    box-shadow: 0 0 12px rgba(255, 210, 90, 0.65);
+  }
+  #status-progress::-moz-progress-bar {
+    background: linear-gradient(90deg, #ff8a3c, var(--bxh-gold));
+    border-radius: 999px;
+  }
+
+  #status-notice {
+    margin-top: 1.4em;
+    max-width: min(88vw, 460px);
+    color: #ff6b6b;
+    background: rgba(30, 6, 10, 0.85);
+    border: 1px solid rgba(255, 107, 107, 0.45);
+    border-radius: 10px;
+    padding: 0.8em 1em;
+    font-size: 13px;
+    line-height: 1.45;
+    text-align: left;
+  }
+</style>

@@ -74,7 +74,7 @@ func _rebuild() -> void:
 		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	outer.add_child(title)
 
-	var subtitle := UIKit.make_label("a tetris-y, card-y, demon-y puzzle", "small", Cfg.TEXT_DIM)
+	var subtitle := UIKit.make_label("Climb the tower", "small", Cfg.TEXT_DIM)
 	if Layout.portrait:
 		subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	outer.add_child(subtitle)

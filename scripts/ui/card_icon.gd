@@ -26,6 +26,9 @@ var dimmed := false:
 var _glow: TextureRect
 var _viewport: SubViewport
 var _pivot: Node3D
+var _camera: Camera3D
+var _spin_radius := 1.0
+var _half_height := 1.0
 var _sprite: AnimatedSprite2D
 var _empty_label: Label
 var _press_time := 0.0
@@ -120,6 +123,7 @@ func _clear_visual() -> void:
 		_viewport.get_parent().queue_free()
 		_viewport = null
 		_pivot = null
+		_camera = null
 	if _sprite != null and is_instance_valid(_sprite):
 		_sprite.get_parent().queue_free()
 		_sprite = null
@@ -137,7 +141,11 @@ func _build_model_view(scene: PackedScene) -> void:
 	_viewport.own_world_3d = true
 	_viewport.world_3d = World3D.new()
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	_viewport.msaa_3d = Viewport.MSAA_4X
+	# Every icon is a separate render target, and 4x MSAA quadruples what each
+	# one costs. A phone browser has a hard ceiling on that and drops the whole
+	# tab when it is hit, which is not a trade worth making for smoother edges
+	# on a 90px turntable.
+	_viewport.msaa_3d = Viewport.MSAA_2X if Layout.touch_primary else Viewport.MSAA_4X
 	container.add_child(_viewport)
 
 	var env := Environment.new()
@@ -169,44 +177,85 @@ func _build_model_view(scene: PackedScene) -> void:
 	var model := scene.instantiate()
 	_pivot.add_child(model)
 
-	var cam := Camera3D.new()
-	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	_viewport.add_child(cam)
-	_fit_model(model, cam)
+	_camera = Camera3D.new()
+	_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	_viewport.add_child(_camera)
+	_fit_model(model)
+	# The ortho box depends on the viewport's aspect, which is not known until
+	# the container has been laid out.
+	container.resized.connect(_frame_camera)
 
 
-## Centre the model on the pivot and frame it with an ortho camera.
-func _fit_model(model: Node, cam: Camera3D) -> void:
+const PIVOT_TILT_DEG := -8.0
+## How far the hover parallax may tip the model past its resting pose. Only a
+## mouse can trigger it, so only a mouse pays for the headroom.
+const HOVER_TILT_MAX := 0.45
+const FRAME_MARGIN := 1.06
+
+
+## Centre the model on the pivot and record the silhouette it sweeps out, so the
+## camera can be framed now and re-framed whenever the icon is resized.
+func _fit_model(model: Node) -> void:
 	var aabb := _merged_aabb(model)
 	if aabb.size == Vector3.ZERO:
 		aabb = AABB(Vector3(-0.5, -0.5, -0.5), Vector3.ONE)
-	var centre := aabb.get_center()
-	model.position = -centre
-	var radius: float = maxf(aabb.size.length() * 0.5, 0.001)
-	cam.size = radius * 1.62
-	cam.position = Vector3(0, radius * 0.45, radius * 4.0)
-	cam.look_at(Vector3.ZERO, Vector3.UP)
-	cam.near = 0.01
-	cam.far = radius * 12.0
-	_pivot.rotation.x = deg_to_rad(-8.0)
+	model.position = -aabb.get_center()
+	# The model spins on Y, so the widest it ever gets is the XZ diagonal --
+	# framing to the X extent alone clips every model as it turns side-on.
+	_spin_radius = maxf(Vector2(aabb.size.x, aabb.size.z).length() * 0.5, 0.001)
+	_half_height = maxf(aabb.size.y * 0.5, 0.001)
+	_pivot.rotation.x = deg_to_rad(PIVOT_TILT_DEG)
+	_frame_camera()
 
 
+## Sizes the ortho box to the model's worst-case projected silhouette. The old
+## code used 0.81 * the bounding-sphere radius, which is smaller than the model
+## itself whenever a shape is tall and thin, so those models were cropped.
+func _frame_camera() -> void:
+	if _camera == null or not is_instance_valid(_camera):
+		return
+	var dist: float = maxf(_spin_radius, _half_height) * 4.0
+	# Camera elevation plus the pivot's own tilt: both push the model's height
+	# into the frame at an angle, so both count toward how tall it reads.
+	var pitch := atan2(dist * 0.14, dist) + absf(deg_to_rad(PIVOT_TILT_DEG))
+	if interactive and not Layout.touch_primary:
+		pitch += HOVER_TILT_MAX
+	var half_h: float = _half_height * cos(pitch) + _spin_radius * sin(pitch)
+	var half_w := _spin_radius
+
+	var vp: Vector2 = _viewport.size if _viewport != null and is_instance_valid(_viewport) else Vector2.ZERO
+	var aspect: float = vp.x / vp.y if vp.x > 0.0 and vp.y > 0.0 else 1.0
+	# Camera3D.size is the *vertical* extent (KEEP_HEIGHT), so a viewport
+	# narrower than it is tall needs the box grown to fit the width.
+	var half: float = maxf(half_h, half_w / maxf(aspect, 0.01))
+
+	_camera.size = half * 2.0 * FRAME_MARGIN
+	_camera.position = Vector3(0, dist * 0.14, dist)
+	_camera.look_at(Vector3.ZERO, Vector3.UP)
+	_camera.near = 0.01
+	_camera.far = dist * 4.0
+
+
+## Bounding box of every mesh under `node`, in `node`'s own local space.
+##
+## Each child's box is transformed by that child's transform exactly once. The
+## previous version applied a MeshInstance3D's transform twice -- once when
+## building its own box and again on the way out -- so any glb whose meshes are
+## not at the origin was framed against a box in the wrong place.
 func _merged_aabb(node: Node) -> AABB:
 	var out := AABB()
 	var found := false
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		out = (node as MeshInstance3D).mesh.get_aabb()
+		found = true
 	for child in node.get_children():
 		var sub := _merged_aabb(child)
-		if sub.size != Vector3.ZERO:
-			out = sub if not found else out.merge(sub)
-			found = true
-	if node is MeshInstance3D:
-		var mi := node as MeshInstance3D
-		if mi.mesh != null:
-			var box := mi.transform * mi.mesh.get_aabb()
-			out = box if not found else out.merge(box)
-			found = true
-	if node is Node3D and found and node.get_parent() != null:
-		out = (node as Node3D).transform * out
+		if sub.size == Vector3.ZERO:
+			continue
+		if child is Node3D:
+			sub = (child as Node3D).transform * sub
+		out = sub if not found else out.merge(sub)
+		found = true
 	return out
 
 
@@ -276,7 +325,8 @@ func _process(delta: float) -> void:
 			want = local.clamp(Vector2(-0.5, -0.5), Vector2(0.5, 0.5))
 		_tilt = _tilt.lerp(want, 1.0 - pow(0.002, delta))
 		_pivot.rotation.y = _base_spin + _tilt.x * 0.9
-		_pivot.rotation.x = deg_to_rad(-8.0) - _tilt.y * 0.6
+		# Bounded by HOVER_TILT_MAX, which is the headroom _frame_camera left.
+		_pivot.rotation.x = deg_to_rad(PIVOT_TILT_DEG) - _tilt.y * (HOVER_TILT_MAX * 2.0)
 
 	if _pressing:
 		_press_time += delta
@@ -312,6 +362,15 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_MOUSE_EXIT:
 		_pressing = false
 		_mouse_in = false
+	elif what == NOTIFICATION_VISIBILITY_CHANGED:
+		# A hidden icon keeps its render target either way, but there is no
+		# reason to keep drawing into it behind a full-screen menu.
+		set_render_active(is_visible_in_tree())
+	elif what == NOTIFICATION_SCROLL_BEGIN:
+		# A finger drag on top of this icon is scrolling the list it sits in, not
+		# tapping it. Let go without firing the tap or the hold-to-sell.
+		_pressing = false
+		_long_fired = false
 
 
 ## Visible-only rendering keeps a shop full of models off the GPU budget.

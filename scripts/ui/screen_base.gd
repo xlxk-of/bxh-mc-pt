@@ -52,6 +52,9 @@ func _ready() -> void:
 		scroll.scroll_deadzone = 12
 		scroll.follow_focus = true
 		_frame.add_child(scroll)
+		# Every screen here is a list of buttons and panels, all of which eat the
+		# drag before the scroll view can see it.
+		TouchDragScroll.install(scroll)
 		content = VBoxContainer.new()
 		content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		content.add_theme_constant_override("separation", 12)

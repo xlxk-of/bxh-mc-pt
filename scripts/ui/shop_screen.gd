@@ -52,6 +52,7 @@ func _build() -> void:
 	inv_scroll.custom_minimum_size.y = 72.0 if compact else 88.0
 	inv_scroll.scroll_deadzone = 12
 	_inventory_section.add_child(inv_scroll)
+	TouchDragScroll.install(inv_scroll)
 	_inventory_box = HBoxContainer.new()
 	_inventory_box.add_theme_constant_override("separation", 8)
 	inv_scroll.add_child(_inventory_box)

@@ -74,6 +74,7 @@ jobs:
           # export_presets.cfg whenever its export dialog is opened, which would
           # silently drop a hand-added preset.
           python3 - <<'PY'
+          import json
           import re
 
           path = "export_presets.cfg"
@@ -82,6 +83,12 @@ jobs:
           if 'platform="Web"' in text:
               print("Web preset already present; leaving it alone")
               raise SystemExit(0)
+
+          # The themed loading screen. Godot wants html/head_include as one
+          # inline string, so the stylesheet lives in a reviewable file and is
+          # escaped in here rather than being smuggled into this heredoc.
+          head = json.dumps(open("web/head_include.html", encoding="utf-8").read())
+          print("head_include: %d chars from web/head_include.html" % (len(head) - 2))
 
           used = [int(n) for n in re.findall(r'\[preset\.(\d+)\]', text)]
           idx = max(used) + 1 if used else 0
@@ -118,7 +125,7 @@ jobs:
           vram_texture_compression/for_mobile=true
           html/export_icon=true
           html/custom_html_shell=""
-          html/head_include=""
+          html/head_include={head}
           html/canvas_resize_policy=2
           html/focus_canvas_on_start=true
           html/experimental_virtual_keyboard=false
@@ -131,7 +138,7 @@ jobs:
           progressive_web_app/icon_180x180="res://assets/pwa/icon_180.png"
           progressive_web_app/icon_512x512="res://assets/pwa/icon_512.png"
           progressive_web_app/background_color=Color(0.03, 0.03, 0.06, 1)
-          '''.format(i=idx)
+          '''.format(i=idx, head=head)
           # The heredoc is indented for YAML readability; strip that back off.
           preset = "\n".join(line[10:] if line.startswith(" " * 10) else line
                              for line in preset.splitlines())

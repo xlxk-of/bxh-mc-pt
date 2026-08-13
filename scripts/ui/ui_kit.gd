@@ -128,11 +128,12 @@ static func make_panel(fill := Cfg.PANEL_FILL, accent := Cfg.PANEL_ACCENT) -> Pa
 ## fine with a mouse, unhittable with a thumb, and the single biggest reason the
 ## settings screen read as a desktop panel on a phone. This one is sized off the
 ## same tap-target metric as buttons.
-static func make_slider(value: float, accent := Cfg.ACCENT_PRIMARY) -> HSlider:
+static func make_slider(value: float, accent := Cfg.ACCENT_PRIMARY,
+		low := 0.0, high := 1.0, step := 0.01) -> HSlider:
 	var s := HSlider.new()
-	s.min_value = 0.0
-	s.max_value = 1.0
-	s.step = 0.01
+	s.min_value = low
+	s.max_value = high
+	s.step = step
 	s.value = value
 	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var track: float = maxf(12.0, Layout.touch_size() * 0.28)

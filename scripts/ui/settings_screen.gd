@@ -47,6 +47,11 @@ func _build() -> void:
 	_section("Controls")
 	_placement_card()
 	if Layout.touch_primary:
+		# Only meaningful on a thumb: a mouse is absolute and always 1:1.
+		_slider_card("Drag speed", SaveGame.drag_gain, func(v: float):
+			SaveGame.drag_gain = v,
+			BoardView.DRAG_GAIN_MIN, BoardView.DRAG_GAIN_MAX, 0.1, "x",
+			"How far the piece travels for each inch your finger moves. Higher crosses the board faster; lower aims more precisely.")
 		_toggle_card("Haptics", SaveGame.haptics, func(on: bool):
 			SaveGame.haptics = on
 			if on:
@@ -140,22 +145,32 @@ func _hint(text: String) -> Label:
 	return l
 
 
-func _slider_card(label: String, value: float, on_change: Callable) -> void:
+func _slider_card(label: String, value: float, on_change: Callable,
+		low := 0.0, high := 1.0, step := 0.01, unit := "%", hint := "") -> void:
 	var box := _card()
 
 	var row := HBoxContainer.new()
 	var name_label := UIKit.make_label(label, "body")
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(name_label)
-	var value_label := UIKit.make_label("%d%%" % roundi(value * 100.0), "body", Cfg.ACCENT_PRIMARY)
+	var value_label := UIKit.make_label(_slider_text(value, unit), "body", Cfg.ACCENT_PRIMARY)
 	row.add_child(value_label)
 	box.add_child(row)
 
-	var slider := UIKit.make_slider(value)
+	var slider := UIKit.make_slider(value, Cfg.ACCENT_PRIMARY, low, high, step)
 	slider.value_changed.connect(func(v: float):
-		value_label.text = "%d%%" % roundi(v * 100.0)
+		value_label.text = _slider_text(v, unit)
 		on_change.call(v))
 	box.add_child(slider)
+	if not hint.is_empty():
+		box.add_child(_hint(hint))
+
+
+## Percentages read better as whole numbers; a gain multiplier needs its decimal.
+func _slider_text(value: float, unit: String) -> String:
+	if unit == "%":
+		return "%d%%" % roundi(value * 100.0)
+	return "%.1f%s" % [value, unit]
 
 
 func _toggle_card(label: String, value: bool, on_change: Callable, hint := "") -> void:
@@ -231,7 +246,7 @@ func _placement_card() -> void:
 func _placement_blurb(mode: int) -> String:
 	if mode == BoardView.PLACEMENT_DIRECT:
 		return "The piece sits under your finger and follows it exactly. Aim it."
-	return "The piece floats a hand's width above your finger and travels %.0fx as far, so a short flick from the tray reaches the top row." % BoardView.DRAG_GAIN
+	return "The piece floats a hand's width above your finger and travels %.1fx as far, so a short flick from the tray reaches the top row." % SaveGame.drag_gain
 
 
 ## The escape hatch for a browser that lies about its pointer. A home-screen PWA

@@ -44,8 +44,10 @@ Giga Boss cycle, a JSON save round-trip, column collapse, and a six-run soak.
 | Action | Touch | Mouse / keyboard |
 | --- | --- | --- |
 | Place a piece | drag from the tray, release on the board | click a piece, then click a cell — or drag |
-| Aim | piece floats ~112pt above the finger and tracks finger *motion* at 2x, so a short flick from the tray reaches the top row; drops snap up to 2 cells | ghost follows the cursor 1:1 |
+| Aim | piece floats ~112pt above the finger and tracks finger *motion* at 1.5x (Settings → Drag speed, 1.0–3.0), so a short flick from the tray reaches the top row; drops snap up to 2 cells | ghost follows the cursor 1:1 |
 | Aim, Direct mode | piece sits under the finger, 1:1 | — |
+| Board ghost | only while a piece is held or a finger is down on the board | always, tracking the cursor |
+| Scroll a list | drag anywhere, including across buttons and cards | wheel or scrollbar |
 | Card special action | press and hold | right-click |
 | Pocket Dimension | double-tap a piece / the pocket | double-click |
 | Cancel a targeted item | back gesture | Esc or right-click |
